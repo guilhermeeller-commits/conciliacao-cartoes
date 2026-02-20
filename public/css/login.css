@@ -100,7 +100,7 @@ body {
     width: 160px;
     height: auto;
     margin-bottom: 28px;
-    color: #ffffff;
+    filter: invert(1);
 }
 
 .login-title {

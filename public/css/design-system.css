@@ -173,7 +173,12 @@ a:hover {
 .sidebar-brand .sidebar-logo {
     width: 120px;
     height: auto;
-    color: var(--text-primary);
+    filter: invert(1);
+    transition: filter var(--transition-fast);
+}
+
+[data-theme="light"] .sidebar-brand .sidebar-logo {
+    filter: none;
 }
 
 .sidebar-brand .brand-sub {

@@ -6,10 +6,32 @@
 (function () {
     'use strict';
 
-    const NAV_ITEMS = [
-        { href: '/', label: 'Dashboard', icon: '📊', matchPaths: ['/', '/dashboard.html'] },
-        { href: '/extratos-cartao.html', label: 'Extratos de Cartão', icon: '💳', matchPaths: ['/extratos-cartao.html', '/extrato-detalhe.html'] },
-        { href: '/conciliacoes.html', label: 'Conciliações', icon: '🔄', matchPaths: ['/conciliacoes.html', '/conciliacao.html'] },
+    /* ── Navigation structure ── */
+    const NAV_GROUPS = [
+        {
+            label: 'Visão Geral',
+            items: [
+                { href: '/', label: 'Dashboard', icon: '📊', matchPaths: ['/', '/dashboard.html'] },
+            ]
+        },
+        {
+            label: 'Cartões',
+            items: [
+                { href: '/faturas.html', label: 'Faturas de Cartão', icon: '💳', matchPaths: ['/faturas.html', '/extratos-cartao.html', '/extrato-detalhe.html', '/conciliacoes.html'] },
+            ]
+        },
+        {
+            label: 'Bancário / ERP',
+            items: [
+                { href: '/repositorio.html', label: 'Repositório Olist', icon: '🔄', matchPaths: ['/repositorio.html'] },
+            ]
+        },
+        {
+            label: 'Sistema',
+            items: [
+                { href: '/configuracoes.html', label: 'Configurações', icon: '⚙️', matchPaths: ['/configuracoes.html'] },
+            ]
+        },
     ];
 
     function getCurrentPath() {
@@ -21,26 +43,24 @@
         return item.matchPaths.some(p => p === path);
     }
 
-    const REPO_ITEM = { href: '/repositorio.html', label: 'Repositório', icon: '🧠', matchPaths: ['/repositorio.html'] };
-    const CAT_ITEM = { href: '/categorizacao.html', label: 'Categorização', icon: '🏷️', matchPaths: ['/categorizacao.html'] };
-
-    function buildSidebarHTML() {
-        const navItemsHTML = NAV_ITEMS.map(item => {
-            const activeClass = isActive(item) ? ' active' : '';
-            return `<a class="nav-item${activeClass}" href="${item.href}">
+    function buildNavItemHTML(item) {
+        const activeClass = isActive(item) ? ' active' : '';
+        const disabledClass = item.disabled ? ' disabled' : '';
+        const href = item.disabled ? '#' : item.href;
+        const title = item.disabled ? ' title="Em breve"' : '';
+        return `<a class="nav-item${activeClass}${disabledClass}" href="${href}"${title}>
                         <span class="icon">${item.icon}</span> ${item.label}
                     </a>`;
-        }).join('\n                    ');
+    }
 
-        const repoActive = isActive(REPO_ITEM) ? ' active' : '';
-        const repoItemHTML = `<a class="nav-item${repoActive}" href="${REPO_ITEM.href}">
-                        <span class="icon">${REPO_ITEM.icon}</span> ${REPO_ITEM.label}
-                    </a>`;
-
-        const catActive = isActive(CAT_ITEM) ? ' active' : '';
-        const catItemHTML = `<a class="nav-item${catActive}" href="${CAT_ITEM.href}">
-                        <span class="icon">${CAT_ITEM.icon}</span> ${CAT_ITEM.label}
-                    </a>`;
+    function buildSidebarHTML() {
+        const groupsHTML = NAV_GROUPS.map(group => {
+            const itemsHTML = group.items.map(buildNavItemHTML).join('\n                    ');
+            return `<div class="nav-group">
+                    <div class="nav-group-label">${group.label}</div>
+                    ${itemsHTML}
+                </div>`;
+        }).join('\n                ');
 
         return `
         <aside class="erp-sidebar" id="sidebar">
@@ -52,15 +72,7 @@
                 </div>
             </div>
             <nav class="sidebar-nav">
-                <div class="nav-group">
-                    <div class="nav-group-label">Cartões</div>
-                    ${navItemsHTML}
-                </div>
-                <div class="nav-group">
-                    <div class="nav-group-label">Inteligência</div>
-                    ${repoItemHTML}
-                    ${catItemHTML}
-                </div>
+                ${groupsHTML}
             </nav>
             <div class="sidebar-footer">
                 <div class="theme-toggle">

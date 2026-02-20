@@ -264,4 +264,104 @@ router.patch('/transactions/:id/reconciled', (req, res) => {
     }
 });
 
+/**
+ * POST /api/card-statements/:id/auto-classify
+ * Re-run expense classifier on unclassified transactions for a statement
+ */
+router.post('/:id/auto-classify', (req, res) => {
+    try {
+        const statement = repo.getStatementById(req.params.id);
+        if (!statement) {
+            return res.status(404).json({ erro: 'Fatura não encontrada' });
+        }
+
+        const transactions = repo.getTransactions(statement.id);
+
+        // Filter unclassified transactions
+        const unclassified = transactions.filter(t =>
+            !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO')
+        );
+
+        if (unclassified.length === 0) {
+            return res.json({ classified: 0, message: 'Todas as transações já estão categorizadas' });
+        }
+
+        // Convert to the format expected by classificarItens
+        const itens = unclassified.map(t => ({
+            data: t.date,
+            descricao: t.description,
+            valor: t.amount || 0,
+            parcela: t.installment || '',
+        }));
+
+        const classified = classificarItens(itens);
+
+        // Update only the ones that got classified
+        let updatedCount = 0;
+        for (let i = 0; i < classified.length; i++) {
+            const item = classified[i];
+            if (item.confianca !== 'manual') {
+                repo.updateTransactionCategory(unclassified[i].id, item.categoria, item.confianca);
+                updatedCount++;
+            }
+        }
+
+        // Update statement counts
+        repo.updateStatementCounts(statement.id);
+
+        logger.info(`🏷️  Auto-classificação: ${updatedCount}/${unclassified.length} transações classificadas na fatura ${statement.id}`);
+
+        res.json({
+            classified: updatedCount,
+            total_unclassified: unclassified.length,
+            message: `${updatedCount} transações categorizadas automaticamente`,
+        });
+    } catch (error) {
+        logger.error(`❌ Erro na auto-classificação: ${error.message}`);
+        res.status(500).json({ erro: error.message });
+    }
+});
+
+/**
+ * POST /api/card-statements/:id/send-to-olist
+ * Send categorized transactions from a statement to Olist/Tiny ERP
+ */
+router.post('/:id/send-to-olist', (req, res) => {
+    try {
+        const statement = repo.getStatementById(req.params.id);
+        if (!statement) {
+            return res.status(404).json({ erro: 'Fatura não encontrada' });
+        }
+
+        const transactions = repo.getTransactions(statement.id);
+
+        // Validate all transactions are categorized
+        const unclassified = transactions.filter(t =>
+            !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO')
+        );
+
+        if (unclassified.length > 0) {
+            return res.status(400).json({
+                erro: `Existem ${unclassified.length} transações não categorizadas. Categorize todas antes de enviar ao Olist.`,
+                unclassified_count: unclassified.length,
+            });
+        }
+
+        // TODO: Implement actual Olist API integration
+        // For now, mark the statement as sent and return success
+        logger.info(`📤 Envio ao Olist: Fatura ${statement.id} (${transactions.length} transações) — funcionalidade em desenvolvimento`);
+
+        res.json({
+            ok: true,
+            message: `Fatura com ${transactions.length} transações preparada para envio ao Olist. Integração com API Tiny em desenvolvimento.`,
+            statement_id: statement.id,
+            transactions_count: transactions.length,
+        });
+    } catch (error) {
+        logger.error(`❌ Erro ao enviar ao Olist: ${error.message}`);
+        res.status(500).json({ erro: error.message });
+    }
+});
+
 module.exports = router;
+

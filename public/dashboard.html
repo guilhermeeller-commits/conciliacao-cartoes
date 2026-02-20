@@ -5,17 +5,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard — Calisul</title>
+    <meta name="description" content="Central Financeira Calisul — Dashboard de faturas de cartão de crédito">
     <link rel="stylesheet" href="/css/design-system.css">
     <script src="/js/theme-toggle.js"></script>
     <script src="/js/sidebar.js"></script>
+    <script src="/js/notifications.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <style>
-        /* ─── Dashboard-specific ─── */
+        /* ─── Dashboard Layout ─── */
+        .dashboard-grid {
+            display: grid;
+            gap: 24px;
+        }
+
+        /* ─── Welcome Banner ─── */
         .welcome-banner {
             background: linear-gradient(135deg, rgba(0, 94, 252, 0.08), rgba(99, 102, 241, 0.06));
             border: 1px solid rgba(0, 94, 252, 0.15);
             border-radius: var(--radius-lg);
             padding: 28px 32px;
-            margin-bottom: 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         .welcome-banner h2 {
@@ -29,7 +40,18 @@
             color: var(--text-secondary);
         }
 
-        /* KPI accent bars */
+        .welcome-sync {
+            text-align: right;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .welcome-sync .sync-time {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        /* ─── KPI accent bars ─── */
         .kpi-card.accent-blue {
             border-top: 3px solid var(--blue);
         }
@@ -42,31 +64,206 @@
             border-top: 3px solid var(--orange);
         }
 
-        .kpi-card.accent-red {
-            border-top: 3px solid var(--red);
+        .kpi-card.accent-purple {
+            border-top: 3px solid #a855f7;
         }
 
-        /* Recent list */
-        .recent-section {
+        .kpi-value-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .kpi-pct {
+            font-size: 12px;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .kpi-pct.good {
+            background: rgba(63, 185, 80, 0.12);
+            color: var(--green);
+        }
+
+        .kpi-pct.warn {
+            background: rgba(227, 179, 65, 0.12);
+            color: var(--orange);
+        }
+
+        .kpi-pct.bad {
+            background: rgba(248, 81, 73, 0.12);
+            color: var(--red);
+        }
+
+        /* ─── Charts ─── */
+        .charts-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
             background: var(--bg-card);
             border: 1px solid var(--border-default);
             border-radius: var(--radius-lg);
             padding: 24px;
-            margin-top: 28px;
         }
 
-        .recent-header {
+        .chart-card h3 {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .chart-container.bar-chart {
+            height: 280px;
+        }
+
+        .chart-container.donut-chart {
+            height: 280px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* ─── Alerts ─── */
+        .alerts-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+        }
+
+        .alerts-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
         }
 
-        .recent-header h3 {
+        .alerts-header h3 {
+            font-size: 14px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .alert-badge {
+            background: rgba(248, 81, 73, 0.12);
+            color: var(--red);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .alert-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            transition: background var(--transition-fast);
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .alert-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .alert-item+.alert-item {
+            border-top: 1px solid var(--border-muted);
+        }
+
+        .alert-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-size: 16px;
+            flex-shrink: 0;
+            background: rgba(248, 81, 73, 0.08);
+        }
+
+        .alert-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .alert-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .alert-info p {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .alert-action {
+            font-size: 12px;
+            color: var(--blue);
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        /* ─── Bottom Grid ─── */
+        .bottom-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 800px) {
+            .bottom-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .section-header h3 {
+            font-size: 14px;
             font-weight: 700;
         }
 
+        /* ─── Recent items ─── */
         .recent-item {
             display: flex;
             align-items: center;
@@ -119,16 +316,20 @@
         }
 
         .recent-meta {
-            font-size: 12px;
-            color: var(--text-secondary);
-            white-space: nowrap;
+            text-align: right;
         }
 
-        /* Progress mini */
+        .recent-meta .date {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        /* ─── Progress mini bar ─── */
         .progress-mini {
             display: flex;
             align-items: center;
             gap: 8px;
+            margin-top: 4px;
         }
 
         .progress-mini .bar {
@@ -145,11 +346,89 @@
             border-radius: 2px;
         }
 
-        .empty-recent {
+        .progress-mini .label {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ─── Card progress ─── */
+        .card-progress-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+        }
+
+        .card-progress-item+.card-progress-item {
+            border-top: 1px solid var(--border-muted);
+        }
+
+        .card-progress-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .card-progress-info {
+            flex: 1;
+        }
+
+        .card-progress-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .card-progress-info p {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .card-progress-pct {
+            font-size: 16px;
+            font-weight: 700;
+            text-align: right;
+        }
+
+        .card-progress-bar {
+            width: 80px;
+            height: 4px;
+            background: var(--border-muted);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .card-progress-bar .fill {
+            height: 100%;
+            background: var(--green);
+            border-radius: 2px;
+        }
+
+        .empty-state {
             text-align: center;
             padding: 40px 20px;
             color: var(--text-muted);
             font-size: 13px;
+        }
+
+        .no-alerts {
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .no-alerts .icon {
+            font-size: 32px;
+            margin-bottom: 8px;
         }
     </style>
 </head>
@@ -160,8 +439,14 @@
 
         <!-- Main -->
         <main class="erp-main">
-            <!-- Mobile toggle -->
-            <button class="mobile-toggle" id="mobileToggle">☰</button>
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+            </button>
 
             <!-- Breadcrumb -->
             <div class="erp-breadcrumb">
@@ -169,127 +454,337 @@
             </div>
 
             <div class="erp-content">
-                <!-- Welcome -->
-                <div class="welcome-banner">
-                    <h2>Central Financeira — Cartões</h2>
-                    <p>Visão geral dos extratos e conciliações de cartão de crédito</p>
-                </div>
+                <div class="dashboard-grid">
 
-                <!-- KPIs -->
-                <div class="kpi-grid" id="kpiGrid">
-                    <div class="kpi-card accent-blue">
-                        <div class="kpi-label">Extratos importados</div>
-                        <div class="kpi-value" id="kpiExtratos">—</div>
-                        <div class="kpi-sub" id="kpiExtratosSub">carregando...</div>
+                    <!-- Welcome Banner -->
+                    <div class="welcome-banner">
+                        <div>
+                            <h2>Central Financeira — Cartões</h2>
+                            <p>Visão geral dos extratos e conciliações de cartão de crédito</p>
+                        </div>
+                        <div class="welcome-sync" id="syncInfo"></div>
                     </div>
-                    <div class="kpi-card accent-green">
-                        <div class="kpi-label">Transações</div>
-                        <div class="kpi-value" id="kpiTransacoes">—</div>
-                        <div class="kpi-sub" id="kpiTransacoesSub"></div>
-                    </div>
-                    <div class="kpi-card accent-orange">
-                        <div class="kpi-label">Conciliadas</div>
-                        <div class="kpi-value" id="kpiConciliadas">—</div>
-                        <div class="kpi-sub" id="kpiConciliadasSub"></div>
-                    </div>
-                    <div class="kpi-card accent-red">
-                        <div class="kpi-label">Valor total</div>
-                        <div class="kpi-value" id="kpiValor">—</div>
-                        <div class="kpi-sub" id="kpiValorSub"></div>
-                    </div>
-                </div>
 
-                <!-- Recent Extratos -->
-                <div class="recent-section">
-                    <div class="recent-header">
-                        <h3>📋 Últimos extratos importados</h3>
-                        <a href="/extratos-cartao.html" class="btn btn-outline btn-sm">Ver todos</a>
+                    <!-- KPIs -->
+                    <div class="kpi-grid" id="kpiGrid">
+                        <div class="kpi-card accent-blue">
+                            <div class="kpi-label">Faturas importadas</div>
+                            <div class="kpi-value" id="kpiFaturas">—</div>
+                            <div class="kpi-sub" id="kpiFaturasSub">carregando...</div>
+                        </div>
+                        <div class="kpi-card accent-green">
+                            <div class="kpi-label">Transações categorizadas</div>
+                            <div class="kpi-value-row">
+                                <span class="kpi-value" id="kpiCategorizadas">—</span>
+                                <span class="kpi-pct" id="kpiCategorizadasPct"></span>
+                            </div>
+                            <div class="kpi-sub" id="kpiCategorizadasSub"></div>
+                        </div>
+                        <div class="kpi-card accent-orange">
+                            <div class="kpi-label">Transações pendentes</div>
+                            <div class="kpi-value" id="kpiPendentes">—</div>
+                            <div class="kpi-sub" id="kpiPendentesSub"></div>
+                        </div>
+                        <div class="kpi-card accent-purple">
+                            <div class="kpi-label">Valor total</div>
+                            <div class="kpi-value" id="kpiValor">—</div>
+                            <div class="kpi-sub" id="kpiValorSub"></div>
+                        </div>
                     </div>
-                    <div id="recentList">
-                        <div class="empty-recent">Carregando...</div>
-                    </div>
-                </div>
 
-                <!-- Recent Conciliações status -->
-                <div class="recent-section" style="margin-top: 20px;">
-                    <div class="recent-header">
-                        <h3>🔄 Progresso por cartão</h3>
-                        <a href="/conciliacoes.html" class="btn btn-outline btn-sm">Ver conciliações</a>
+                    <!-- Alerts -->
+                    <div class="alerts-section" id="alertsSection">
+                        <div class="alerts-header">
+                            <h3>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path
+                                        d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                                    <line x1="12" y1="9" x2="12" y2="13" />
+                                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                                </svg>
+                                Atenção necessária
+                                <span class="alert-badge" id="alertCount">0</span>
+                            </h3>
+                            <a href="/faturas.html?status=pending" class="btn btn-outline btn-sm">Ver todas</a>
+                        </div>
+                        <div id="alertsList"></div>
                     </div>
-                    <div id="cardProgress">
-                        <div class="empty-recent">Carregando...</div>
+
+                    <!-- Charts -->
+                    <div class="charts-row">
+                        <div class="chart-card">
+                            <h3>📊 Gastos por Categoria (últimos 6 meses)</h3>
+                            <div class="chart-container bar-chart">
+                                <canvas id="chartMonthly"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <h3>💳 Distribuição por Cartão</h3>
+                            <div class="chart-container donut-chart">
+                                <canvas id="chartDonut"></canvas>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Bottom: Recent + Card Progress -->
+                    <div class="bottom-grid">
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3>📋 Últimas faturas importadas</h3>
+                                <a href="/faturas.html" class="btn btn-outline btn-sm">Ver todas</a>
+                            </div>
+                            <div id="recentList">
+                                <div class="empty-state">Carregando...</div>
+                            </div>
+                        </div>
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h3>🔄 Progresso por cartão</h3>
+                                <a href="/faturas.html" class="btn btn-outline btn-sm">Ver faturas</a>
+                            </div>
+                            <div id="cardProgress">
+                                <div class="empty-state">Carregando...</div>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </main>
     </div>
 
     <script>
-        // ─── Init ─────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDashboard();
-        });
+        // ─── Chart.js Config ──────────────────────────
+        const CHART_COLORS = [
+            '#005efc', '#3fb950', '#e3b341', '#f85149',
+            '#a855f7', '#06b6d4', '#f97316', '#ec4899',
+        ];
 
-        // ─── Data ─────────────────────────────────────
+        // ─── Init ─────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', loadDashboard);
+
         async function loadDashboard() {
             try {
-                const res = await fetch('/api/card-statements');
+                const res = await fetch('/api/dashboard/stats');
                 const data = await res.json();
-                const statements = data.statements || [];
 
-                renderKPIs(statements);
-                renderRecent(statements);
-                renderCardProgress(statements);
+                renderKPIs(data.kpis);
+                renderAlerts(data.alerts);
+                renderChartMonthly(data.charts.monthly);
+                renderChartDonut(data.charts.byCard);
+                renderRecent(data.recent);
+                renderCardProgress(data.cardProgress);
+                renderSyncInfo(data.kpis.last_olist_sync);
             } catch (e) {
                 console.error('Erro ao carregar dashboard:', e);
             }
         }
 
-        function renderKPIs(statements) {
-            const totalExtratos = statements.length;
-            const totalTransacoes = statements.reduce((s, st) => s + (st.total_transactions || 0), 0);
-            const totalConciliadas = statements.reduce((s, st) => s + (st.reconciled_count || 0), 0);
-            const totalValor = statements.reduce((s, st) => s + (st.total_amount || 0), 0);
-            const pctConciliadas = totalTransacoes > 0 ? Math.round((totalConciliadas / totalTransacoes) * 100) : 0;
+        // ─── KPIs ─────────────────────────────────────
+        function renderKPIs(kpis) {
+            document.getElementById('kpiFaturas').textContent = kpis.total_statements;
+            document.getElementById('kpiFaturasSub').textContent =
+                kpis.total_statements === 0
+                    ? 'nenhuma fatura'
+                    : `de ${kpis.distinct_cards} cartões`;
 
-            document.getElementById('kpiExtratos').textContent = totalExtratos;
-            document.getElementById('kpiExtratosSub').textContent = totalExtratos === 0 ? 'nenhum extrato' : `de ${getDistinctCards(statements).length} cartões`;
+            document.getElementById('kpiCategorizadas').textContent =
+                kpis.total_categorized.toLocaleString('pt-BR');
 
-            document.getElementById('kpiTransacoes').textContent = totalTransacoes.toLocaleString('pt-BR');
-            document.getElementById('kpiTransacoesSub').textContent = `em ${totalExtratos} extratos`;
+            const pctEl = document.getElementById('kpiCategorizadasPct');
+            pctEl.textContent = `${kpis.pct_categorized}%`;
+            pctEl.className = 'kpi-pct ' +
+                (kpis.pct_categorized >= 80 ? 'good' : kpis.pct_categorized >= 50 ? 'warn' : 'bad');
 
-            document.getElementById('kpiConciliadas').textContent = `${pctConciliadas}%`;
-            document.getElementById('kpiConciliadasSub').textContent = `${totalConciliadas} de ${totalTransacoes}`;
+            document.getElementById('kpiCategorizadasSub').textContent =
+                `de ${kpis.total_transactions.toLocaleString('pt-BR')} transações`;
 
-            document.getElementById('kpiValor').textContent = `R$ ${totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            document.getElementById('kpiValorSub').textContent = 'soma de todas as transações';
+            document.getElementById('kpiPendentes').textContent =
+                kpis.total_pending.toLocaleString('pt-BR');
+            document.getElementById('kpiPendentesSub').textContent =
+                kpis.total_pending === 0 ? 'tudo categorizado! 🎉' : 'aguardando classificação';
+
+            document.getElementById('kpiValor').textContent =
+                `R$ ${kpis.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            document.getElementById('kpiValorSub').textContent = 'soma de todas as faturas';
         }
 
-        function renderRecent(statements) {
-            const container = document.getElementById('recentList');
+        // ─── Sync Info ────────────────────────────────
+        function renderSyncInfo(lastSync) {
+            const el = document.getElementById('syncInfo');
+            if (!lastSync) {
+                el.innerHTML = '<span>Olist: <span class="sync-time">nunca sincronizado</span></span>';
+                return;
+            }
+            const date = new Date(lastSync);
+            const formatted = date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            el.innerHTML = `<span>Última sync Olist:<br><span class="sync-time">${formatted}</span></span>`;
+        }
 
-            if (statements.length === 0) {
+        // ─── Alerts ───────────────────────────────────
+        function renderAlerts(alerts) {
+            const container = document.getElementById('alertsList');
+            const badge = document.getElementById('alertCount');
+
+            if (!alerts || alerts.length === 0) {
+                badge.textContent = '0';
                 container.innerHTML = `
-                    <div class="empty-recent">
-                        <p>Nenhum extrato importado ainda</p>
-                        <a href="/extratos-cartao.html" class="btn btn-blue btn-sm" style="margin-top: 12px; display: inline-flex;">
-                            Importar primeiro extrato
-                        </a>
-                    </div>
-                `;
+                    <div class="no-alerts">
+                        <div class="icon">✅</div>
+                        <p>Nenhuma fatura pendente de categorização</p>
+                    </div>`;
                 return;
             }
 
-            // Sort by date desc, take top 5
-            const recent = [...statements]
-                .sort((a, b) => (b.statement_date || '').localeCompare(a.statement_date || ''))
-                .slice(0, 5);
+            badge.textContent = alerts.length;
+
+            container.innerHTML = alerts.map(a => {
+                const pct = a.total_transactions > 0
+                    ? Math.round((a.categorized_count / a.total_transactions) * 100)
+                    : 0;
+                return `
+                    <a class="alert-item" href="/extrato-detalhe.html?id=${a.id}">
+                        <div class="alert-icon">⚠️</div>
+                        <div class="alert-info">
+                            <h4>${escapeHtml(a.filename)}</h4>
+                            <p>${a.pending_count} transações sem categoria · ${pct}% categorizado</p>
+                        </div>
+                        <div class="alert-action">Categorizar →</div>
+                    </a>`;
+            }).join('');
+        }
+
+        // ─── Chart: Monthly by Category ───────────────
+        function renderChartMonthly(monthly) {
+            const ctx = document.getElementById('chartMonthly');
+            if (!monthly || !monthly.labels || monthly.labels.length === 0) {
+                ctx.parentElement.innerHTML = '<div class="empty-state">Sem dados de transações categorizadas para o gráfico</div>';
+                return;
+            }
+
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
+            const textColor = isDark ? '#8b949e' : '#656d76';
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: monthly.labels,
+                    datasets: monthly.datasets.map((ds, i) => ({
+                        label: ds.label,
+                        data: ds.data,
+                        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + 'cc',
+                        borderRadius: 3,
+                        borderSkipped: false,
+                    })),
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: textColor,
+                                font: { size: 11 },
+                                boxWidth: 12,
+                                padding: 12,
+                            },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => `${ctx.dataset.label}: R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { color: textColor, font: { size: 11 } },
+                        },
+                        y: {
+                            stacked: true,
+                            grid: { color: gridColor },
+                            ticks: {
+                                color: textColor,
+                                font: { size: 11 },
+                                callback: (v) => `R$ ${(v / 1000).toFixed(0)}k`,
+                            },
+                        },
+                    },
+                },
+            });
+        }
+
+        // ─── Chart: Donut by Card ─────────────────────
+        function renderChartDonut(byCard) {
+            const ctx = document.getElementById('chartDonut');
+            if (!byCard || !byCard.labels || byCard.labels.length === 0) {
+                ctx.parentElement.innerHTML = '<div class="empty-state">Sem dados para o gráfico</div>';
+                return;
+            }
+
+            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+            const textColor = isDark ? '#8b949e' : '#656d76';
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: byCard.labels,
+                    datasets: [{
+                        data: byCard.data,
+                        backgroundColor: CHART_COLORS.slice(0, byCard.labels.length),
+                        borderWidth: 0,
+                        hoverOffset: 6,
+                    }],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: textColor,
+                                font: { size: 11 },
+                                boxWidth: 12,
+                                padding: 12,
+                            },
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (ctx) => {
+                                    const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
+                                    const pct = total > 0 ? Math.round((ctx.raw / total) * 100) : 0;
+                                    return `${ctx.label}: R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pct}%)`;
+                                },
+                            },
+                        },
+                    },
+                },
+            });
+        }
+
+        // ─── Recent ───────────────────────────────────
+        function renderRecent(recent) {
+            const container = document.getElementById('recentList');
+
+            if (!recent || recent.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <p>Nenhuma fatura importada ainda</p>
+                        <a href="/faturas.html" class="btn btn-blue btn-sm">Importar primeira fatura</a>
+                    </div>`;
+                return;
+            }
 
             container.innerHTML = recent.map(s => {
                 const date = formatDate(s.statement_date);
                 const pct = s.total_transactions > 0
-                    ? Math.round((s.reconciled_count / s.total_transactions) * 100)
-                    : 0;
+                    ? Math.round((s.categorized_count / s.total_transactions) * 100) : 0;
                 return `
                     <a class="recent-item" href="/extrato-detalhe.html?id=${s.id}">
                         <div class="recent-icon">💳</div>
@@ -298,57 +793,44 @@
                             <p>${escapeHtml(s.card_name || '—')} · ${escapeHtml(s.financial_account || '—')}</p>
                         </div>
                         <div class="recent-meta">
-                            <div>${date}</div>
-                            <div class="progress-mini" style="margin-top: 4px;">
+                            <div class="date">${date}</div>
+                            <div class="progress-mini">
                                 <div class="bar"><div class="fill" style="width: ${pct}%"></div></div>
-                                <span style="font-size: 11px; color: var(--text-muted);">${s.reconciled_count}/${s.total_transactions}</span>
+                                <span class="label">${s.categorized_count}/${s.total_transactions}</span>
                             </div>
                         </div>
-                    </a>
-                `;
+                    </a>`;
             }).join('');
         }
 
-        function renderCardProgress(statements) {
+        // ─── Card Progress ────────────────────────────
+        function renderCardProgress(progress) {
             const container = document.getElementById('cardProgress');
-            const cards = getDistinctCards(statements);
 
-            if (cards.length === 0) {
-                container.innerHTML = '<div class="empty-recent">Nenhum dado disponível</div>';
+            if (!progress || progress.length === 0) {
+                container.innerHTML = '<div class="empty-state">Nenhum dado disponível</div>';
                 return;
             }
 
-            container.innerHTML = cards.map(card => {
-                const cardStatements = statements.filter(s => s.card_name === card);
-                const totalTx = cardStatements.reduce((s, st) => s + (st.total_transactions || 0), 0);
-                const reconciledTx = cardStatements.reduce((s, st) => s + (st.reconciled_count || 0), 0);
-                const pct = totalTx > 0 ? Math.round((reconciledTx / totalTx) * 100) : 0;
-                const totalVal = cardStatements.reduce((s, st) => s + (st.total_amount || 0), 0);
-
+            container.innerHTML = progress.map(c => {
+                const pct = c.total_tx > 0 ? Math.round((c.categorized_tx / c.total_tx) * 100) : 0;
+                const pctColor = pct === 100 ? 'var(--green)' : 'var(--text-primary)';
                 return `
-                    <div class="recent-item" style="cursor: default;">
-                        <div class="recent-icon">💳</div>
-                        <div class="recent-info">
-                            <h4>${escapeHtml(card)}</h4>
-                            <p>${cardStatements.length} extrato${cardStatements.length !== 1 ? 's' : ''} · R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                    <div class="card-progress-item">
+                        <div class="card-progress-icon">💳</div>
+                        <div class="card-progress-info">
+                            <h4>${escapeHtml(c.card_name)}</h4>
+                            <p>${c.statement_count} fatura${c.statement_count !== 1 ? 's' : ''} · R$ ${c.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                         </div>
-                        <div class="recent-meta" style="text-align: right;">
-                            <div style="font-weight: 600; color: ${pct === 100 ? 'var(--green)' : 'var(--text-primary)'};">${pct}%</div>
-                            <div class="progress-mini" style="margin-top: 4px;">
-                                <div class="bar" style="width: 80px;"><div class="fill" style="width: ${pct}%"></div></div>
-                                <span style="font-size: 11px; color: var(--text-muted);">${reconciledTx}/${totalTx}</span>
-                            </div>
+                        <div style="text-align: right;">
+                            <div class="card-progress-pct" style="color: ${pctColor}">${pct}%</div>
+                            <div class="card-progress-bar"><div class="fill" style="width: ${pct}%"></div></div>
                         </div>
-                    </div>
-                `;
+                    </div>`;
             }).join('');
         }
 
         // ─── Helpers ──────────────────────────────────
-        function getDistinctCards(statements) {
-            return [...new Set(statements.map(s => s.card_name).filter(Boolean))].sort();
-        }
-
         function formatDate(dateStr) {
             if (!dateStr) return '—';
             const parts = dateStr.split('-');
@@ -362,8 +844,6 @@
             div.textContent = str;
             return div.innerHTML;
         }
-
-
     </script>
 </body>
 

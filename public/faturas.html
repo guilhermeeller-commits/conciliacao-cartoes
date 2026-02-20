@@ -4,10 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Extratos de Cartão — Calisul</title>
+    <title>Faturas de Cartão — Calisul</title>
     <link rel="stylesheet" href="/css/design-system.css">
     <script src="/js/theme-toggle.js"></script>
     <script src="/js/sidebar.js"></script>
+    <script src="/js/notifications.js"></script>
     <style>
         /* ─── Page-specific ─── */
         .upload-modal .drop-zone {
@@ -52,15 +53,6 @@
             opacity: 0.6;
         }
 
-        /* Table row clickable */
-        .olist-table tbody tr.clickable {
-            cursor: pointer;
-        }
-
-        .olist-table tbody tr.clickable:hover td {
-            background: rgba(56, 139, 253, 0.06);
-        }
-
         /* Progress mini */
         .progress-mini {
             display: flex;
@@ -84,70 +76,54 @@
             transition: width 0.3s ease;
         }
 
-        /* Checkbox column */
-        .th-check,
-        .td-check {
-            width: 40px;
-            text-align: center;
-        }
-
-        .td-check input[type="checkbox"],
-        .th-check input[type="checkbox"] {
-            width: 15px;
-            height: 15px;
-            cursor: pointer;
-            accent-color: var(--blue);
-        }
-
-        /* ─── Olist Filter Chips ─── */
-        .filter-chips {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .filter-chip {
+        /* ─── Status Badges ─── */
+        .status-badge {
             display: inline-flex;
             align-items: center;
-            gap: 6px;
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 13px;
-            font-weight: 500;
-            border: 1px solid var(--border-default);
-            background: transparent;
-            color: var(--text-secondary);
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            font-family: inherit;
+            gap: 5px;
+            padding: 4px 12px;
+            border-radius: var(--radius-pill);
+            font-size: 11px;
+            font-weight: 600;
             white-space: nowrap;
         }
 
-        .filter-chip:hover {
-            border-color: var(--text-muted);
-            color: var(--text-primary);
+        .status-badge.status-pending {
+            background: var(--orange-light);
+            color: var(--orange);
         }
 
-        .filter-chip.active {
-            border-color: var(--blue);
+        .status-badge.status-categorized {
+            background: var(--green-light);
+            color: var(--green);
+        }
+
+        .status-badge.status-sent {
+            background: var(--blue-light);
             color: var(--blue);
-            background: rgba(56, 139, 253, 0.08);
         }
 
-        .filter-chip .chip-icon {
-            font-size: 14px;
+        .status-badge .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
         }
 
-        /* Card filter chips (smaller) */
-        .card-chip {
-            display: inline-flex;
+        /* ─── Status Filter Chips ─── */
+        .status-filters {
+            display: flex;
             align-items: center;
-            gap: 4px;
-            padding: 5px 14px;
-            border-radius: 20px;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .status-filter-chip {
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
             font-size: 12px;
-            font-weight: 500;
+            font-weight: 600;
             border: 1px solid var(--border-default);
             background: transparent;
             color: var(--text-secondary);
@@ -156,13 +132,13 @@
             font-family: inherit;
         }
 
-        .card-chip:hover {
-            border-color: var(--text-muted);
+        .status-filter-chip:hover {
+            border-color: var(--border-strong);
             color: var(--text-primary);
         }
 
-        .card-chip.active {
-            background: rgba(56, 139, 253, 0.12);
+        .status-filter-chip.active {
+            background: var(--blue-light);
             border-color: var(--blue);
             color: var(--blue);
         }
@@ -194,14 +170,12 @@
             padding: 20px;
         }
 
-        /* Period label */
         .period-label {
             font-size: 12px;
             color: var(--text-muted);
             margin-bottom: 10px;
         }
 
-        /* Quick period chips */
         .period-chips {
             display: flex;
             flex-wrap: wrap;
@@ -239,7 +213,6 @@
             color: var(--green);
         }
 
-        /* Date nav row (for "do dia" / "da semana" / "do mês") */
         .date-nav-row {
             display: none;
             align-items: center;
@@ -281,7 +254,6 @@
             color: var(--text-primary);
         }
 
-        /* Interval date inputs */
         .interval-fields {
             display: none;
             flex-direction: column;
@@ -330,7 +302,6 @@
             font-size: 14px;
         }
 
-        /* Popover footer actions */
         .period-popover-footer {
             display: flex;
             align-items: center;
@@ -342,7 +313,7 @@
         .period-popover-footer .btn-apply {
             padding: 8px 24px;
             border-radius: 20px;
-            background: var(--blue-dark);
+            background: var(--blue);
             color: #fff;
             font-size: 13px;
             font-weight: 600;
@@ -353,7 +324,7 @@
         }
 
         .period-popover-footer .btn-apply:hover {
-            background: var(--blue);
+            background: var(--blue-hover);
         }
 
         .period-popover-footer .btn-cancel {
@@ -464,6 +435,31 @@
             color: var(--blue);
         }
 
+        .selection-bar .btn-send-olist {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--blue);
+            background: rgba(0, 94, 252, 0.1);
+            color: var(--blue);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+        }
+
+        .selection-bar .btn-send-olist:hover:not(:disabled) {
+            background: rgba(0, 94, 252, 0.2);
+        }
+
+        .selection-bar .btn-send-olist:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
         .selection-bar .btn-delete-sel {
             display: inline-flex;
             align-items: center;
@@ -502,6 +498,11 @@
             color: var(--text-primary);
         }
 
+        .modal-desc {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
         /* Toast */
         .toast-container {
             position: fixed;
@@ -532,18 +533,24 @@
             <div class="erp-breadcrumb">
                 <a href="/">inicio</a>
                 <span class="sep">/</span>
-                <span>financas</span>
+                <span>cartões</span>
                 <span class="sep">/</span>
-                <span class="current">extratos de cartao</span>
+                <span class="current">faturas</span>
             </div>
 
             <div class="erp-content">
                 <!-- Page Header -->
                 <div class="page-header">
-                    <h1>Extratos de cartão</h1>
+                    <h1>Faturas de Cartão</h1>
                     <div class="page-header-actions">
                         <button class="btn btn-blue" id="btnImportar" onclick="openUploadModal()">
-                            importar extrato
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            Importar Fatura
                         </button>
                     </div>
                 </div>
@@ -556,7 +563,8 @@
                                 <circle cx="11" cy="11" r="8" />
                                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
                             </svg></span>
-                        <input type="text" id="searchInput" placeholder="Pesquise por nome" oninput="applyFilters()">
+                        <input type="text" id="searchInput" placeholder="Pesquisar por nome..."
+                            oninput="applyFilters()">
                     </div>
                     <div class="filter-chips">
                         <div class="filter-wrap">
@@ -568,7 +576,7 @@
                                         <line x1="16" y1="2" x2="16" y2="6" />
                                         <line x1="8" y1="2" x2="8" y2="6" />
                                         <line x1="3" y1="10" x2="21" y2="10" />
-                                    </svg></span> por periodo
+                                    </svg></span> por período
                             </button>
                             <div class="period-popover" id="periodPopover">
                                 <div class="period-popover-body">
@@ -589,31 +597,17 @@
                                     </div>
                                     <div class="date-nav-row" id="dateNavRow">
                                         <button class="date-nav-btn" onclick="navigateDate(-1)">‹</button>
-                                        <span class="date-nav-label" id="dateNavLabel">19/02/2026</span>
+                                        <span class="date-nav-label" id="dateNavLabel">—</span>
                                         <button class="date-nav-btn" onclick="navigateDate(1)">›</button>
                                     </div>
                                     <div class="interval-fields" id="intervalFields">
                                         <div class="interval-row">
                                             <span class="interval-label">De</span>
                                             <input type="date" id="dateFrom" title="Data inicial">
-                                            <span class="calendar-icon"><svg width="14" height="14" viewBox="0 0 24 24"
-                                                    fill="none" stroke="currentColor" stroke-width="2">
-                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                                    <line x1="16" y1="2" x2="16" y2="6" />
-                                                    <line x1="8" y1="2" x2="8" y2="6" />
-                                                    <line x1="3" y1="10" x2="21" y2="10" />
-                                                </svg></span>
                                         </div>
                                         <div class="interval-row">
                                             <span class="interval-label">Até</span>
                                             <input type="date" id="dateTo" title="Data final">
-                                            <span class="calendar-icon"><svg width="14" height="14" viewBox="0 0 24 24"
-                                                    fill="none" stroke="currentColor" stroke-width="2">
-                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                                                    <line x1="16" y1="2" x2="16" y2="6" />
-                                                    <line x1="8" y1="2" x2="8" y2="6" />
-                                                    <line x1="3" y1="10" x2="21" y2="10" />
-                                                </svg></span>
                                         </div>
                                     </div>
                                 </div>
@@ -627,6 +621,18 @@
                     </div>
                 </div>
 
+                <!-- Status Filter -->
+                <div class="status-filters">
+                    <button class="status-filter-chip active" data-status="all"
+                        onclick="filterByStatus('all')">Todas</button>
+                    <button class="status-filter-chip" data-status="pending" onclick="filterByStatus('pending')">🟡
+                        Pendentes</button>
+                    <button class="status-filter-chip" data-status="categorized"
+                        onclick="filterByStatus('categorized')">🟢 Categorizadas</button>
+                    <button class="status-filter-chip" data-status="sent" onclick="filterByStatus('sent')">🔵
+                        Enviadas</button>
+                </div>
+
                 <!-- Table -->
                 <div class="olist-table-wrapper" id="tableWrapper">
                     <table class="olist-table">
@@ -638,13 +644,14 @@
                                     Data <span class="sort-arrow" id="sort-statement_date">⇅</span>
                                 </th>
                                 <th class="sortable" onclick="sortBy('filename')">
-                                    Arquivo <span class="sort-arrow" id="sort-filename">⇅</span>
+                                    Fatura <span class="sort-arrow" id="sort-filename">⇅</span>
                                 </th>
                                 <th class="sortable" onclick="sortBy('financial_account')">
-                                    Conta financeira <span class="sort-arrow" id="sort-financial_account">⇅</span>
+                                    Conta Financeira <span class="sort-arrow" id="sort-financial_account">⇅</span>
                                 </th>
-                                <th class="sortable" onclick="sortBy('categorized')">
-                                    Categorizados/Total <span class="sort-arrow" id="sort-categorized">⇅</span>
+                                <th>Progresso</th>
+                                <th class="sortable" onclick="sortBy('status')">
+                                    Status <span class="sort-arrow" id="sort-status">⇅</span>
                                 </th>
                             </tr>
                         </thead>
@@ -667,7 +674,7 @@
     <div class="modal-overlay upload-modal" id="uploadModal">
         <div class="modal">
             <div class="modal-header">
-                <h3>Importar extrato de cartão</h3>
+                <h3>Importar fatura de cartão</h3>
                 <button class="btn btn-ghost btn-sm" onclick="closeUploadModal()" aria-label="Fechar">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
@@ -707,10 +714,10 @@
                 </button>
             </div>
             <div class="modal-body">
-                <p style="color: var(--text-secondary); font-size: 14px;">
-                    Tem certeza que deseja excluir o extrato <strong id="deleteFilename"></strong>?
+                <p class="modal-desc">
+                    Tem certeza que deseja excluir a fatura <strong id="deleteFilename"></strong>?
                     <br><br>
-                    Todas as transações desse extrato serão removidas permanentemente.
+                    Todas as transações dessa fatura serão removidas permanentemente.
                 </p>
             </div>
             <div class="modal-footer">
@@ -720,9 +727,16 @@
         </div>
     </div>
 
-    <!-- Selection Action Bar -->
     <div class="selection-bar" id="selectionBar">
         <span class="sel-count" id="selCount"><strong>0</strong> selecionados</span>
+        <button class="btn-send-olist" id="btnBatchOlist" onclick="batchSendToOlist()" disabled>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+            Enviar ao Olist
+        </button>
         <button class="btn-delete-sel" onclick="deleteSelected()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round">
@@ -744,6 +758,7 @@
         let selectedIds = new Set();
         let currentSort = { field: 'statement_date', dir: 'desc' };
         let activeCardFilter = null;
+        let activeStatusFilter = 'all';
         let dateFromFilter = null;
         let dateToFilter = null;
         let deleteTargetId = null;
@@ -753,7 +768,6 @@
 
         // ─── Init ─────────────────────────────────────
         document.addEventListener('DOMContentLoaded', () => {
-            // Default: no date filter (sem filtro)
             dateFromFilter = null;
             dateToFilter = null;
             loadStatements();
@@ -766,11 +780,24 @@
             try {
                 const res = await fetch('/api/card-statements');
                 const data = await res.json();
-                allStatements = data.statements || [];
+                allStatements = (data.statements || []).map(s => {
+                    // Compute status based on categorization
+                    const total = s.total_transactions || 0;
+                    const categorized = s.categorized_count || 0;
+                    let status = 'pending';
+                    if (total > 0 && categorized >= total) {
+                        status = 'categorized';
+                    }
+                    // If sent_to_olist flag exists, override
+                    if (s.sent_to_olist) {
+                        status = 'sent';
+                    }
+                    return { ...s, status };
+                });
                 applyFilters();
             } catch (e) {
-                console.error('Erro ao carregar extratos:', e);
-                showToast('Erro ao carregar extratos', 'error');
+                console.error('Erro ao carregar faturas:', e);
+                showToast('Erro ao carregar faturas', 'error');
             }
         }
 
@@ -784,6 +811,15 @@
             }
         }
 
+        // ─── Status Filter ────────────────────────────
+        function filterByStatus(status) {
+            activeStatusFilter = status;
+            document.querySelectorAll('.status-filter-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.status === status);
+            });
+            applyFilters();
+        }
+
         // ─── Filters ─────────────────────────────────
         function applyFilters() {
             const search = document.getElementById('searchInput').value.toLowerCase().trim();
@@ -793,6 +829,7 @@
                 if (activeCardFilter && s.card_name !== activeCardFilter) return false;
                 if (dateFromFilter && s.statement_date < dateFromFilter) return false;
                 if (dateToFilter && s.statement_date > dateToFilter) return false;
+                if (activeStatusFilter !== 'all' && s.status !== activeStatusFilter) return false;
                 return true;
             });
 
@@ -804,6 +841,12 @@
                 if (currentSort.field === 'categorized') {
                     va = a.total_transactions > 0 ? (a.categorized_count || 0) / a.total_transactions : 0;
                     vb = b.total_transactions > 0 ? (b.categorized_count || 0) / b.total_transactions : 0;
+                }
+
+                if (currentSort.field === 'status') {
+                    const order = { pending: 0, categorized: 1, sent: 2 };
+                    va = order[va] ?? 0;
+                    vb = order[vb] ?? 0;
                 }
 
                 if (typeof va === 'string') va = va.toLowerCase();
@@ -869,12 +912,10 @@
         function selectPeriod(period) {
             activePeriod = period;
 
-            // Update active chip
             document.querySelectorAll('.period-chip').forEach(c => {
                 c.classList.toggle('active', c.dataset.period === period);
             });
 
-            // Show/hide date nav row
             const navRow = document.getElementById('dateNavRow');
             const intervalFields = document.getElementById('intervalFields');
 
@@ -886,7 +927,6 @@
             } else if (period === 'interval') {
                 navRow.classList.remove('visible');
                 intervalFields.classList.add('visible');
-                // Default: last 7 days
                 const today = new Date();
                 const weekAgo = new Date(today);
                 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -959,11 +999,11 @@
             // Update chip label
             const btn = document.getElementById('btnPeriod');
             if (activePeriod === 'none') {
-                btn.innerHTML = '<span class="chip-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> por periodo';
+                btn.innerHTML = '<span class="chip-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> por período';
                 btn.classList.remove('active');
             } else {
-                const periodLabels = { '30d': 'ultimos 30 dias', 'day': 'do dia', 'week': 'da semana', 'month': 'do mes', 'interval': 'intervalo' };
-                const label = periodLabels[activePeriod] || 'por periodo';
+                const periodLabels = { '30d': 'últimos 30 dias', 'day': 'do dia', 'week': 'da semana', 'month': 'do mês', 'interval': 'intervalo' };
+                const label = periodLabels[activePeriod] || 'por período';
                 btn.innerHTML = `<span class="chip-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> ${label}`;
                 btn.classList.add('active');
             }
@@ -986,17 +1026,27 @@
         });
 
         // ─── Table Render ─────────────────────────────
+        function getStatusBadge(status) {
+            const configs = {
+                pending: { label: 'Pendente', cls: 'status-pending' },
+                categorized: { label: 'Categorizada', cls: 'status-categorized' },
+                sent: { label: 'Enviada', cls: 'status-sent' },
+            };
+            const cfg = configs[status] || configs.pending;
+            return `<span class="status-badge ${cfg.cls}"><span class="status-dot"></span>${cfg.label}</span>`;
+        }
+
         function renderTable() {
             const tbody = document.getElementById('tableBody');
 
             if (filteredStatements.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="5" style="padding: 0; border: none;">
+                        <td colspan="6" style="padding: 0; border: none;">
                             <div class="empty-state">
                                 <div class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
-                                <h3>Nenhum extrato encontrado</h3>
-                                <p>Importe um extrato de cartao usando o botao acima</p>
+                                <h3>Nenhuma fatura encontrada</h3>
+                                <p>Importe uma fatura de cartão usando o botão acima</p>
                             </div>
                         </td>
                     </tr>
@@ -1011,7 +1061,9 @@
 
             tbody.innerHTML = page.map(s => {
                 const date = formatDate(s.statement_date);
-                const ratio = `(${s.categorized_count || 0}/${s.total_transactions})`;
+                const total = s.total_transactions || 0;
+                const categorized = s.categorized_count || 0;
+                const pct = total > 0 ? Math.round((categorized / total) * 100) : 0;
                 const checked = selectedIds.has(s.id) ? 'checked' : '';
 
                 return `
@@ -1022,7 +1074,13 @@
                         <td>${date}</td>
                         <td>${escapeHtml(s.filename)}</td>
                         <td>${escapeHtml(s.financial_account || '—')}</td>
-                        <td>${ratio}</td>
+                        <td>
+                            <div class="progress-mini">
+                                <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+                                <span style="font-size:12px;color:var(--text-secondary)">${categorized}/${total}</span>
+                            </div>
+                        </td>
+                        <td>${getStatusBadge(s.status)}</td>
                     </tr>
                 `;
             }).join('');
@@ -1092,6 +1150,17 @@
             if (count > 0) {
                 bar.classList.add('visible');
                 document.getElementById('selCount').innerHTML = `<strong>${count}</strong> selecionado${count > 1 ? 's' : ''}`;
+
+                // Enable Olist button only if ALL selected are fully categorized
+                const btnOlist = document.getElementById('btnBatchOlist');
+                const allCategorized = [...selectedIds].every(id => {
+                    const s = allStatements.find(st => st.id === id);
+                    return s && s.total_transactions > 0 && (s.categorized_count || 0) >= s.total_transactions;
+                });
+                btnOlist.disabled = !allCategorized;
+                btnOlist.title = allCategorized
+                    ? 'Enviar faturas selecionadas ao Olist'
+                    : 'Todas as faturas selecionadas precisam estar 100% categorizadas';
             } else {
                 bar.classList.remove('visible');
             }
@@ -1107,7 +1176,7 @@
         function deleteSelected() {
             if (selectedIds.size === 0) return;
             deleteTargetId = '__batch__';
-            document.getElementById('deleteFilename').textContent = `${selectedIds.size} extrato${selectedIds.size > 1 ? 's' : ''} selecionado${selectedIds.size > 1 ? 's' : ''}`;
+            document.getElementById('deleteFilename').textContent = `${selectedIds.size} fatura${selectedIds.size > 1 ? 's' : ''} selecionada${selectedIds.size > 1 ? 's' : ''}`;
             document.getElementById('deleteModal').classList.add('active');
         }
 
@@ -1139,12 +1208,10 @@
             const dz = document.getElementById('dropZone');
             if (!dz) return;
 
-            // Guard: só adiciona listeners de click/drag UMA vez no container
             if (!dz._listenersSet) {
                 dz._listenersSet = true;
 
                 dz.addEventListener('click', (e) => {
-                    // Evita abrir o diálogo se já está processando
                     if (dz.classList.contains('processing')) return;
                     const fi = document.getElementById('fileInput');
                     if (fi) fi.click();
@@ -1167,7 +1234,6 @@
                     }
                 });
 
-                // Event delegation: captura change de qualquer input dentro do dz
                 dz.addEventListener('change', (e) => {
                     if (e.target.matches('#fileInput') && e.target.files.length > 0) {
                         uploadFile(e.target.files[0]);
@@ -1205,10 +1271,9 @@
                     throw new Error(data.erro || 'Erro no upload');
                 }
 
-                // Show result
                 dz.innerHTML = `
                     <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-                    <h3>Extrato importado com sucesso</h3>
+                    <h3>Fatura importada com sucesso</h3>
                     <p>${file.name}</p>
                 `;
 
@@ -1239,7 +1304,7 @@
                     </div>
                 `;
 
-                showToast(`${data.total_transactions} transacoes importadas`);
+                showToast(`${data.total_transactions} transações importadas`);
                 loadStatements();
                 loadCardChips();
 
@@ -1270,7 +1335,6 @@
 
             try {
                 if (deleteTargetId === '__batch__') {
-                    // Batch delete
                     const ids = [...selectedIds];
                     let deleted = 0;
                     for (const id of ids) {
@@ -1280,13 +1344,12 @@
                     selectedIds.clear();
                     updateSelectionBar();
                     document.getElementById('selectAll').checked = false;
-                    showToast(`${deleted} extrato${deleted > 1 ? 's' : ''} excluído${deleted > 1 ? 's' : ''}`);
+                    showToast(`${deleted} fatura${deleted > 1 ? 's' : ''} excluída${deleted > 1 ? 's' : ''}`);
                 } else {
-                    // Single delete
                     const res = await fetch(`/api/card-statements/${deleteTargetId}`, { method: 'DELETE' });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.erro);
-                    showToast('Extrato excluído');
+                    showToast('Fatura excluída');
                 }
 
                 closeDeleteModal();
@@ -1296,6 +1359,51 @@
             }
         }
 
+        // ─── Batch Send to Olist ──────────────────────
+        async function batchSendToOlist() {
+            const ids = [...selectedIds];
+            if (ids.length === 0) return;
+
+            // Validate all are categorized
+            const uncategorized = ids.filter(id => {
+                const s = allStatements.find(st => st.id === id);
+                return !s || s.total_transactions === 0 || (s.categorized_count || 0) < s.total_transactions;
+            });
+
+            if (uncategorized.length > 0) {
+                showToast('Todas as faturas precisam estar 100% categorizadas antes do envio', 'error');
+                return;
+            }
+
+            let sent = 0;
+            let errors = 0;
+
+            for (const id of ids) {
+                try {
+                    const res = await fetch(`/api/card-statements/${id}/send-to-olist`, { method: 'POST' });
+                    if (res.ok) {
+                        sent++;
+                    } else {
+                        errors++;
+                    }
+                } catch (e) {
+                    errors++;
+                }
+            }
+
+            if (sent > 0) {
+                showToast(`${sent} fatura${sent > 1 ? 's' : ''} enviada${sent > 1 ? 's' : ''} ao Olist`);
+            }
+            if (errors > 0) {
+                showToast(`${errors} fatura${errors > 1 ? 's' : ''} com erro no envio`, 'error');
+            }
+
+            selectedIds.clear();
+            updateSelectionBar();
+            document.getElementById('selectAll').checked = false;
+            loadStatements();
+        }
+
         // ─── Helpers ──────────────────────────────────
         function formatDate(dateStr) {
             if (!dateStr) return '—';
@@ -1303,7 +1411,6 @@
             if (parts.length === 3) {
                 return `${parts[2]}/${parts[1]}/${parts[0]}`;
             }
-            // Try DD/MM/YYYY already
             return dateStr;
         }
 
@@ -1342,8 +1449,6 @@
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
         }
-
-
     </script>
 </body>
 

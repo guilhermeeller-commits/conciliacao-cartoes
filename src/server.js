@@ -7,9 +7,18 @@ const path = require('path');
 const { runMigrations } = require('./database/migrations');
 runMigrations();
 
+// ─── Scheduler ────────────────────────────────
+const { startScheduler } = require('./services/sync-scheduler');
+startScheduler();
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Redirects from old/legacy pages (MUST be before static middleware)
+app.get('/extratos-cartao.html', (req, res) => res.redirect(301, '/faturas.html'));
+app.get('/conciliacoes.html', (req, res) => res.redirect(301, '/faturas.html'));
+app.get('/conciliacao.html', (req, res) => res.redirect(301, '/'));
 
 // Static files
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -26,9 +35,21 @@ app.use('/api/card-statements', cardStatementsRoutes);
 const repositoryRoutes = require('./modules/repositorio/repository.routes');
 app.use('/api/repository', repositoryRoutes);
 
-// API routes — Categorização Automática
+// API routes — Categorização Automática (dados ERP importados)
 const categorizationRoutes = require('./modules/categorizacao/categorization.routes');
 app.use('/api/categorization', categorizationRoutes);
+
+// API routes — Dashboard
+const dashboardRoutes = require('./modules/dashboard/dashboard.routes');
+app.use('/api/dashboard', dashboardRoutes);
+
+// API routes — Settings
+const settingsRoutes = require('./modules/settings/settings.routes');
+app.use('/api/settings', settingsRoutes);
+
+// API routes — Reports (PDF)
+const reportsRoutes = require('./modules/reports/reports.routes');
+app.use('/api/reports', reportsRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -39,7 +60,9 @@ app.get('/health', (req, res) => {
     });
 });
 
-// Serve conciliação page at root
+
+
+// Serve dashboard at root
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
 });

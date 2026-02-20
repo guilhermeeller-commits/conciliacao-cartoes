@@ -256,6 +256,12 @@ a:hover {
     opacity: 1;
 }
 
+.nav-item.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
 /* Sidebar footer (theme toggle area) */
 .sidebar-footer {
     padding: 16px 20px;
@@ -1368,4 +1374,176 @@ a:hover {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+/* ─── Token Management ─────────────────────────────── */
+.token-section {
+    margin-bottom: 16px;
+}
+
+.token-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.token-display label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.token-display code {
+    background: var(--bg-input, rgba(255, 255, 255, 0.05));
+    padding: 4px 12px;
+    border-radius: var(--radius-md);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    border: 1px solid var(--border-default);
+}
+
+.token-input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.token-input {
+    flex: 1;
+    padding: 10px 14px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-input, rgba(255, 255, 255, 0.05));
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    outline: none;
+    transition: border-color var(--transition-fast);
+}
+
+.token-input:focus {
+    border-color: var(--blue);
+}
+
+.token-input::placeholder {
+    color: var(--text-muted);
+    font-family: inherit;
+}
+
+/* ─── Scheduler Controls ──────────────────────────── */
+.scheduler-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.scheduler-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Toggle switch */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.switch .slider {
+    position: absolute;
+    cursor: pointer;
+    inset: 0;
+    background: var(--border-strong, #3a3f5c);
+    border-radius: 13px;
+    transition: background 0.3s ease;
+}
+
+.switch .slider::before {
+    content: '';
+    position: absolute;
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background: white;
+    border-radius: 50%;
+    transition: transform 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.switch input:checked+.slider {
+    background: var(--green, #22c55e);
+}
+
+.switch input:checked+.slider::before {
+    transform: translateX(22px);
+}
+
+.scheduler-info {
+    display: flex;
+    gap: 24px;
+    padding: 14px 18px;
+    background: var(--bg-input, rgba(255, 255, 255, 0.03));
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-lg);
+    flex-wrap: wrap;
+}
+
+.scheduler-info .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.scheduler-info .info-item .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+
+.scheduler-info .info-item .value {
+    font-size: 13px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+/* ─── Report Controls ─────────────────────────────── */
+.report-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.report-month-input {
+    padding: 10px 14px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
+    background: var(--bg-input, rgba(255, 255, 255, 0.05));
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: inherit;
+    outline: none;
+    transition: border-color var(--transition-fast);
+    color-scheme: dark;
+}
+
+.report-month-input:focus {
+    border-color: var(--blue);
 }

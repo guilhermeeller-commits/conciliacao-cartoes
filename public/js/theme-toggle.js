@@ -32,11 +32,11 @@
     // Apply on load (before paint)
     applyTheme(getPreferredTheme());
 
-    // Bind toggle buttons after DOM ready
-    document.addEventListener('DOMContentLoaded', function () {
-        document.querySelectorAll('.theme-toggle').forEach(function (btn) {
-            btn.addEventListener('click', toggleTheme);
-        });
+    // Use event delegation so dynamically-injected sidebar toggles work
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('.theme-toggle')) {
+            toggleTheme();
+        }
     });
 
     // Listen for system theme changes

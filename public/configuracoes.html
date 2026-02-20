@@ -266,6 +266,89 @@
             border-radius: 10px;
         }
 
+        /* ─── Token Input ─── */
+        .token-input-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            padding: 6px 8px;
+            background: var(--bg-input);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            min-height: 36px;
+            cursor: text;
+            transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+        }
+
+        .token-input-wrap:focus-within {
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px rgba(0, 94, 252, 0.15);
+        }
+
+        .token-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 4px 2px 8px;
+            font-size: 11px;
+            font-weight: 600;
+            font-family: 'SF Mono', 'Fira Code', monospace;
+            background: rgba(0, 94, 252, 0.1);
+            color: var(--blue);
+            border-radius: var(--radius-pill);
+            white-space: nowrap;
+            animation: chipIn 0.15s ease-out;
+        }
+
+        @keyframes chipIn {
+            from {
+                opacity: 0;
+                transform: scale(0.85);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .token-chip .chip-remove {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: none;
+            background: transparent;
+            color: var(--blue);
+            cursor: pointer;
+            font-size: 13px;
+            line-height: 1;
+            padding: 0;
+            transition: background var(--transition-fast);
+        }
+
+        .token-chip .chip-remove:hover {
+            background: rgba(0, 94, 252, 0.2);
+        }
+
+        .token-text-input {
+            flex: 1;
+            min-width: 80px;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 12px;
+            font-family: inherit;
+            color: var(--text-primary);
+            padding: 2px 0;
+        }
+
+        .token-text-input::placeholder {
+            color: var(--text-muted);
+        }
+
         /* ─── Toast ─── */
         .toast-container {
             position: fixed;
@@ -557,13 +640,14 @@
             <div class="tab-panel" id="panel-rules">
                 <div class="settings-card">
                     <h3>Regras de Classificação Automática</h3>
-                    <p>Padrões regex que serão usados para classificar transações automaticamente. Cada padrão é testado
-                        contra a descrição da transação.</p>
+                    <p>Padrões que serão usados para classificar transações automaticamente. Digite uma palavra-chave e
+                        pressione <kbd>Enter</kbd> ou <kbd>Tab</kbd> para adicionar. Clique no <strong>✕</strong> para
+                        remover.</p>
                     <div id="rulesTableWrapper">
                         <table class="settings-table">
                             <thead>
                                 <tr>
-                                    <th>Padrão (Regex)</th>
+                                    <th>Palavras-Chave</th>
                                     <th>Categoria</th>
                                     <th></th>
                                 </tr>
@@ -944,6 +1028,76 @@
             }
         }
 
+        // ─── Token Input Helpers ──────────────────────
+        function createTokenInput(tokens = [], placeholder = 'Adicionar...') {
+            const wrap = document.createElement('div');
+            wrap.className = 'token-input-wrap';
+
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'token-text-input';
+            input.placeholder = placeholder;
+
+            // Render existing tokens
+            tokens.forEach(t => addChipToWrap(wrap, t, input));
+            wrap.appendChild(input);
+
+            // Click on wrapper → focus the input
+            wrap.addEventListener('click', () => input.focus());
+
+            // Key handler: Enter, Tab, or pipe to add token
+            input.addEventListener('keydown', (e) => {
+                const val = input.value.trim();
+                if ((e.key === 'Enter' || e.key === 'Tab' || e.key === '|') && val) {
+                    e.preventDefault();
+                    // Support pasting multiple at once separated by |
+                    val.split('|').map(s => s.trim()).filter(Boolean).forEach(t => {
+                        addChipToWrap(wrap, t, input);
+                    });
+                    input.value = '';
+                }
+                // Backspace on empty input → remove last chip
+                if (e.key === 'Backspace' && !input.value) {
+                    const chips = wrap.querySelectorAll('.token-chip');
+                    if (chips.length > 0) chips[chips.length - 1].remove();
+                }
+            });
+
+            // Also handle paste of pipe-separated values
+            input.addEventListener('paste', (e) => {
+                setTimeout(() => {
+                    const val = input.value.trim();
+                    if (val.includes('|')) {
+                        val.split('|').map(s => s.trim()).filter(Boolean).forEach(t => {
+                            addChipToWrap(wrap, t, input);
+                        });
+                        input.value = '';
+                    }
+                }, 0);
+            });
+
+            return wrap;
+        }
+
+        function addChipToWrap(wrap, text, inputEl) {
+            const chip = document.createElement('span');
+            chip.className = 'token-chip';
+            chip.innerHTML = `${escapeHtml(text)}<button type="button" class="chip-remove" title="Remover">&times;</button>`;
+            chip.querySelector('.chip-remove').addEventListener('click', (e) => {
+                e.stopPropagation();
+                chip.remove();
+            });
+            wrap.insertBefore(chip, inputEl);
+        }
+
+        function getTokensFromWrap(wrap) {
+            return Array.from(wrap.querySelectorAll('.token-chip')).map(chip => {
+                // Get text content minus the × button
+                return chip.firstChild.textContent.trim();
+            });
+        }
+
+        // ─── Tab 2 Rendering ─────────────────────────
         function renderRulesTable() {
             const tbody = document.getElementById('rulesTableBody');
 
@@ -952,30 +1106,46 @@
                 return;
             }
 
-            const catOptions = availableCategories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            tbody.innerHTML = '';
 
-            tbody.innerHTML = classificationRules.map((rule, idx) => {
+            classificationRules.forEach((rule, idx) => {
                 const selectedOptions = availableCategories.map(c =>
                     `<option value="${escapeHtml(c)}" ${c === rule.categoria ? 'selected' : ''}>${escapeHtml(c)}</option>`
                 ).join('');
 
-                return `
-                    <tr data-idx="${idx}">
-                        <td><input type="text" value="${escapeHtml(rule.padrao || '')}" class="rule-pattern" title="Padrão regex" placeholder="Ex: POSTO|GASOLINA"></td>
-                        <td>
-                            <select class="rule-category" title="Categoria">
-                                <option value="">— selecione —</option>
-                                ${selectedOptions}
-                            </select>
-                        </td>
-                        <td>
-                            <button class="btn-icon-danger" onclick="removeRuleRow(${idx})" title="Remover">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                            </button>
-                        </td>
-                    </tr>
+                const tr = document.createElement('tr');
+                tr.dataset.idx = idx;
+
+                // Token input cell
+                const tdTokens = document.createElement('td');
+                const tokens = (rule.padrao || '').split('|').map(s => s.trim()).filter(Boolean);
+                const tokenWrap = createTokenInput(tokens, 'Digitar keyword...');
+                tdTokens.appendChild(tokenWrap);
+
+                // Category cell
+                const tdCat = document.createElement('td');
+                tdCat.innerHTML = `
+                    <select class="rule-category" title="Categoria">
+                        <option value="">— selecione —</option>
+                        ${selectedOptions}
+                    </select>
                 `;
-            }).join('');
+
+                // Delete button cell
+                const tdDel = document.createElement('td');
+                tdDel.innerHTML = `
+                    <button class="btn-icon-danger" title="Remover">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                    </button>
+                `;
+                tdDel.querySelector('button').addEventListener('click', () => {
+                    classificationRules.splice(idx, 1);
+                    renderRulesTable();
+                });
+
+                tr.append(tdTokens, tdCat, tdDel);
+                tbody.appendChild(tr);
+            });
         }
 
         function addRuleRow() {
@@ -984,24 +1154,34 @@
             if (emptyRow) emptyRow.closest('tr').remove();
 
             const catOptions = availableCategories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
-            const idx = classificationRules.length;
 
-            tbody.insertAdjacentHTML('beforeend', `
-                <tr data-idx="${idx}">
-                    <td><input type="text" value="" class="rule-pattern" title="Padrão regex" placeholder="Ex: KEYWORD1|KEYWORD2"></td>
-                    <td>
-                        <select class="rule-category" title="Categoria">
-                            <option value="">— selecione —</option>
-                            ${catOptions}
-                        </select>
-                    </td>
-                    <td>
-                        <button class="btn-icon-danger" onclick="this.closest('tr').remove()" title="Remover">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
-                        </button>
-                    </td>
-                </tr>
-            `);
+            const tr = document.createElement('tr');
+
+            const tdTokens = document.createElement('td');
+            const tokenWrap = createTokenInput([], 'Digitar keyword...');
+            tdTokens.appendChild(tokenWrap);
+
+            const tdCat = document.createElement('td');
+            tdCat.innerHTML = `
+                <select class="rule-category" title="Categoria">
+                    <option value="">— selecione —</option>
+                    ${catOptions}
+                </select>
+            `;
+
+            const tdDel = document.createElement('td');
+            tdDel.innerHTML = `
+                <button class="btn-icon-danger" title="Remover">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                </button>
+            `;
+            tdDel.querySelector('button').addEventListener('click', () => tr.remove());
+
+            tr.append(tdTokens, tdCat, tdDel);
+            tbody.appendChild(tr);
+
+            // Focus the new token input
+            tokenWrap.querySelector('.token-text-input').focus();
         }
 
         function removeRuleRow(idx) {
@@ -1014,11 +1194,21 @@
             const regras = [];
 
             for (const row of rows) {
-                const patternInput = row.querySelector('.rule-pattern');
+                const tokenWrap = row.querySelector('.token-input-wrap');
                 const categorySelect = row.querySelector('.rule-category');
-                if (!patternInput || !categorySelect) continue;
+                if (!tokenWrap || !categorySelect) continue;
 
-                const padrao = patternInput.value.trim();
+                // Commit any text left in the input field
+                const pendingInput = tokenWrap.querySelector('.token-text-input');
+                if (pendingInput && pendingInput.value.trim()) {
+                    pendingInput.value.trim().split('|').map(s => s.trim()).filter(Boolean).forEach(t => {
+                        addChipToWrap(tokenWrap, t, pendingInput);
+                    });
+                    pendingInput.value = '';
+                }
+
+                const tokens = getTokensFromWrap(tokenWrap);
+                const padrao = tokens.join('|');
                 const categoria = categorySelect.value;
                 if (!padrao || !categoria) continue;
 

@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalhe do Extrato — Calisul</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <script src="/js/theme-toggle.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <style>
+        /* ─── Info Blocks ─── */
+        .info-blocks {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .info-block {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            position: relative;
+        }
+
+        .info-block .block-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .info-block .block-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.3px;
+        }
+
+        .info-block .block-sub {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .info-block.highlight {
+            border-color: var(--blue);
+            background: rgba(56, 139, 253, 0.04);
+        }
+
+        /* Progress bar */
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--border-muted);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-bar .fill {
+            height: 100%;
+            background: var(--green);
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        /* Category badge */
+        .cat-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .cat-auto {
+            background: rgba(63, 185, 80, 0.12);
+            color: var(--green);
+        }
+
+        .cat-media {
+            background: rgba(56, 139, 253, 0.12);
+            color: var(--blue);
+        }
+
+        .cat-manual {
+            background: rgba(248, 81, 73, 0.12);
+            color: var(--red);
+            cursor: pointer;
+        }
+
+        .cat-manual:hover {
+            background: rgba(248, 81, 73, 0.2);
+        }
+
+        /* Amount column alignment */
+        .text-right {
+            text-align: right;
+        }
+
+        /* Reconciled checkbox */
+        td.td-reconciled input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+            accent-color: var(--green);
+        }
+
+        /* Category modal */
+        .cat-search {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            background: var(--bg-input);
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            margin-bottom: 10px;
+        }
+
+        .cat-search:focus {
+            border-color: var(--blue);
+        }
+
+        .cat-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .cat-item {
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 13px;
+            transition: all var(--transition-fast);
+            border: 1px solid transparent;
+        }
+
+        .cat-item:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-default);
+        }
+
+        .cat-item.selected {
+            background: rgba(56, 139, 253, 0.1);
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        /* Back button */
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+            font-size: 13px;
+            text-decoration: none;
+            transition: color var(--transition-fast);
+        }
+
+        .back-link:hover {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        /* Summary row */
+        .summary-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .summary-row .stat {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .summary-row .stat strong {
+            color: var(--text-primary);
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="erp-layout">
+        <!-- Sidebar injected by sidebar.js -->
+
+        <!-- Main -->
+        <main class="erp-main">
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+            </button>
+
+            <!-- Breadcrumb -->
+            <div class="erp-breadcrumb">
+                <a href="/">inicio</a>
+                <span class="sep">/</span>
+                <span>financas</span>
+                <span class="sep">/</span>
+                <a href="/extratos-cartao.html">extratos de cartao</a>
+                <span class="sep">/</span>
+                <span class="current" id="breadcrumbFilename">carregando...</span>
+            </div>
+
+            <div class="erp-content">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <div>
+                        <a href="/extratos-cartao.html" class="back-link">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12" />
+                                <polyline points="12 19 5 12 12 5" />
+                            </svg>
+                            voltar para extratos
+                        </a>
+                        <h1 id="pageTitle" style="margin-top: 8px;">Carregando...</h1>
+                    </div>
+                    <div class="page-header-actions">
+                        <button class="btn btn-danger btn-sm" id="btnDelete" onclick="deleteStatement()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                            </svg>
+                            Excluir
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Info Blocks -->
+                <div class="info-blocks" id="infoBlocks">
+                    <div class="info-block">
+                        <div class="block-label">Data</div>
+                        <div class="block-value" id="blockDate">—</div>
+                        <div class="block-sub" id="blockDateSub"></div>
+                    </div>
+                    <div class="info-block">
+                        <div class="block-label">Banco</div>
+                        <div class="block-value" id="blockCard">—</div>
+                    </div>
+                    <div class="info-block">
+                        <div class="block-label">Conta financeira</div>
+                        <div class="block-value" id="blockAccount">—</div>
+                    </div>
+                    <div class="info-block highlight">
+                        <div class="block-label">Categorizados / Total</div>
+                        <div class="block-value" id="blockProgress">—</div>
+                        <div class="progress-bar">
+                            <div class="fill" id="progressFill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary -->
+                <div class="summary-row" id="summaryRow">
+                    <span class="stat">Total: <strong id="statTotal">—</strong></span>
+                    <span class="stat">Classificados: <strong id="statClassified"
+                            style="color: var(--green)">—</strong></span>
+                    <span class="stat">Pendentes: <strong id="statPending" style="color: var(--red)">—</strong></span>
+                    <span class="stat">Valor total: <strong id="statAmount">—</strong></span>
+                </div>
+
+                <!-- Transactions Table -->
+                <div class="olist-table-wrapper">
+                    <table class="olist-table">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Descrição</th>
+                                <th>Parcela</th>
+                                <th class="text-right">Valor</th>
+                                <th>Categoria</th>
+                                <th class="text-center" style="width: 40px;">✓</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionsBody">
+                            <tr>
+                                <td colspan="6" style="text-align:center; padding: 40px; color: var(--text-muted);">
+                                    <span class="spinner"></span> Carregando...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Category Modal -->
+    <div class="modal-overlay" id="categoryModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Selecionar categoria</h3>
+                <button class="btn btn-ghost btn-sm" onclick="closeCategoryModal()" aria-label="Fechar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;" id="catDescription"></p>
+                <input type="text" class="cat-search" id="catSearch" placeholder="Buscar categoria..."
+                    oninput="filterCategories()">
+                <div class="cat-list" id="catList"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" onclick="closeCategoryModal()">Cancelar</button>
+                <button class="btn btn-blue btn-sm" id="btnSaveCategory" onclick="saveCategory()"
+                    disabled>Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Confirmar exclusão</h3>
+                <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()" aria-label="Fechar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); font-size: 14px;">
+                    Tem certeza que deseja excluir este extrato?<br><br>
+                    Todas as transações serão removidas permanentemente.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" onclick="closeDeleteModal()">Cancelar</button>
+                <button class="btn btn-danger btn-sm" onclick="confirmDelete()">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ─── State ────────────────────────────────────
+        let statement = null;
+        let transactions = [];
+        let categories = [];
+        let editingTransactionId = null;
+        let selectedCategory = null;
+
+        const statementId = new URLSearchParams(window.location.search).get('id');
+
+        // ─── Init ─────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!statementId) {
+                window.location.href = '/extratos-cartao.html';
+                return;
+            }
+            loadStatement();
+            loadCategories();
+        });
+
+        // ─── API ──────────────────────────────────────
+        async function loadStatement() {
+            try {
+                const res = await fetch(`/api/card-statements/${statementId}`);
+                if (!res.ok) throw new Error('Extrato não encontrado');
+                const data = await res.json();
+                statement = data.statement;
+                transactions = data.transactions;
+                renderAll();
+            } catch (e) {
+                document.getElementById('pageTitle').textContent = 'Extrato não encontrado';
+                showToast(e.message, 'error');
+            }
+        }
+
+        async function loadCategories() {
+            try {
+                const res = await fetch('/api/reconciliation/categories');
+                const data = await res.json();
+                categories = data.categorias || [];
+            } catch (e) {
+                console.error('Erro ao carregar categorias:', e);
+            }
+        }
+
+        // ─── Render ───────────────────────────────────
+        function renderAll() {
+            if (!statement) return;
+
+            // Page title & breadcrumb
+            document.title = `${statement.filename} — Calisul`;
+            document.getElementById('pageTitle').textContent = statement.filename;
+            document.getElementById('breadcrumbFilename').textContent = statement.filename;
+
+            // Info blocks
+            document.getElementById('blockDate').textContent = formatDate(statement.statement_date);
+            if (statement.due_date && statement.due_date !== statement.statement_date) {
+                document.getElementById('blockDateSub').textContent = `Vencimento: ${formatDate(statement.due_date)}`;
+            }
+
+            document.getElementById('blockCard').textContent = statement.card_name || '—';
+            document.getElementById('blockAccount').textContent = statement.financial_account || '—';
+
+            // Progress — conta transações categorizadas
+            const total = transactions.length;
+            const categorized = transactions.filter(t => t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO')).length;
+            const pct = total > 0 ? Math.round((categorized / total) * 100) : 0;
+            document.getElementById('blockProgress').textContent = `${categorized} / ${total}`;
+            document.getElementById('progressFill').style.width = `${pct}%`;
+
+            // Summary stats
+            const classified = transactions.filter(t => t.category && t.category.trim() !== '');
+            const pending = transactions.filter(t => !t.category || t.category.trim() === '');
+            const totalAmount = transactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statClassified').textContent = classified.length;
+            document.getElementById('statPending').textContent = pending.length;
+            document.getElementById('statAmount').textContent = `R$ ${totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+
+            // Transactions table
+            renderTransactions();
+        }
+
+        function renderTransactions() {
+            const tbody = document.getElementById('transactionsBody');
+
+            if (transactions.length === 0) {
+                tbody.innerHTML = `
+                    <tr><td colspan="6" style="text-align:center; padding: 40px; color: var(--text-muted);">
+                        Nenhuma transação encontrada neste extrato
+                    </td></tr>
+                `;
+                return;
+            }
+
+            tbody.innerHTML = transactions.map(t => {
+                const hasCategory = t.category && t.category.trim() !== '';
+                const catClass = hasCategory ? 'cat-auto' : 'cat-manual';
+                const catLabel = hasCategory ? t.category : '⚠️ NÃO CLASSIFICADO';
+                const amount = (t.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+                return `
+                    <tr>
+                        <td>${formatDate(t.date)}</td>
+                        <td>${escapeHtml(t.description || '—')}</td>
+                        <td>${escapeHtml(t.installment || '—')}</td>
+                        <td class="text-right font-mono">R$ ${amount}</td>
+                        <td>
+                            <span class="cat-badge ${catClass}" onclick="openCategoryModal(${t.id}, '${escapeAttr(t.description)}', '${escapeAttr(t.category || '')}')">
+                                ${escapeHtml(catLabel)}
+                            </span>
+                        </td>
+                        <td class="td-reconciled text-center">
+                            <input type="checkbox" ${t.reconciled ? 'checked' : ''} 
+                                   onchange="toggleReconciled(${t.id}, this.checked)"
+                                   title="Marcar como conciliado">
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // ─── Category Modal ───────────────────────────
+        function openCategoryModal(transactionId, description, currentCategory) {
+            editingTransactionId = transactionId;
+            selectedCategory = currentCategory || null;
+
+            document.getElementById('catDescription').textContent = description;
+            document.getElementById('catSearch').value = '';
+
+            renderCategoryList();
+            document.getElementById('categoryModal').classList.add('active');
+            document.getElementById('catSearch').focus();
+        }
+
+        function closeCategoryModal() {
+            editingTransactionId = null;
+            selectedCategory = null;
+            document.getElementById('categoryModal').classList.remove('active');
+        }
+
+        function renderCategoryList(filter = '') {
+            const list = document.getElementById('catList');
+            const filtered = filter
+                ? categories.filter(c => c.toLowerCase().includes(filter.toLowerCase()))
+                : categories;
+
+            list.innerHTML = filtered.map(c => `
+                <div class="cat-item ${c === selectedCategory ? 'selected' : ''}" 
+                     onclick="selectCategory('${escapeAttr(c)}')">
+                    ${escapeHtml(c)}
+                </div>
+            `).join('');
+
+            document.getElementById('btnSaveCategory').disabled = !selectedCategory;
+        }
+
+        function filterCategories() {
+            const search = document.getElementById('catSearch').value;
+            renderCategoryList(search);
+        }
+
+        function selectCategory(cat) {
+            selectedCategory = cat;
+            renderCategoryList(document.getElementById('catSearch').value);
+        }
+
+        async function saveCategory() {
+            if (!editingTransactionId || !selectedCategory) return;
+
+            try {
+                const res = await fetch(`/api/card-statements/transactions/${editingTransactionId}/category`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ category: selectedCategory }),
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.erro);
+                }
+
+                // Update local state
+                const tx = transactions.find(t => t.id === editingTransactionId);
+                if (tx) {
+                    tx.category = selectedCategory;
+                    tx.confidence = 'manual';
+                }
+
+                closeCategoryModal();
+                renderAll();
+                showToast('Categoria atualizada');
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        // ─── Reconciled Toggle ────────────────────────
+        async function toggleReconciled(transactionId, checked) {
+            try {
+                // Optimistic update
+                const tx = transactions.find(t => t.id === transactionId);
+                if (tx) tx.reconciled = checked ? 1 : 0;
+                renderAll();
+
+                const res = await fetch(`/api/card-statements/transactions/${transactionId}/reconciled`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reconciled: checked }),
+                });
+
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.erro);
+                }
+            } catch (e) {
+                // Revert on error
+                const tx = transactions.find(t => t.id === transactionId);
+                if (tx) tx.reconciled = checked ? 0 : 1;
+                renderAll();
+                showToast(e.message, 'error');
+            }
+        }
+
+        // ─── Delete ───────────────────────────────────
+        function deleteStatement() {
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+
+        async function confirmDelete() {
+            try {
+                const res = await fetch(`/api/card-statements/${statementId}`, { method: 'DELETE' });
+                if (!res.ok) {
+                    const data = await res.json();
+                    throw new Error(data.erro);
+                }
+                window.location.href = '/extratos-cartao.html';
+            } catch (e) {
+                showToast(e.message, 'error');
+                closeDeleteModal();
+            }
+        }
+
+        // ─── Helpers ──────────────────────────────────
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function escapeAttr(str) {
+            if (!str) return '';
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.add('show'));
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+
+    </script>
+</body>
+
+</html>

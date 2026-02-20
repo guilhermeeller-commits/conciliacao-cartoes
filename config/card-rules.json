@@ -1,0 +1,187 @@
+{
+    "cartoes": {
+        "Cartão Caixa": {
+            "conta_numero": 22,
+            "conta_nome": "3.1. Cartão Caixa",
+            "fornecedor": "Caixa Econômica Federal"
+        },
+        "Cartão Cresol": {
+            "conta_numero": 23,
+            "conta_nome": "3.2. Cartão Cresol",
+            "fornecedor": "Cresol"
+        },
+        "Cartão Santander": {
+            "conta_numero": 728,
+            "conta_nome": "3.3. Cartão Santander",
+            "fornecedor": "Santander"
+        },
+        "Cartão Mercado Pago": {
+            "conta_numero": 24,
+            "conta_nome": "3.4. Cartão Mercado Pago",
+            "fornecedor": "Mercado Pago"
+        }
+    },
+    "categorias": [
+        "3.3.1. Combustível",
+        "3.3.2. Manutenções e Revisões",
+        "3.3.3. Pedágios",
+        "3.3.4. Cobranças de Descargas em CD's",
+        "3.5.3. Google - Trafego Pago",
+        "3.5.4. Meta - Trafego Pago",
+        "3.9.1. Passagem/Hospedagem",
+        "3.9.2. Alimentação",
+        "3.9.3. Combustível/Locomocação",
+        "4.1.1. Aluguel",
+        "4.1.2. IPTU",
+        "4.1.4. Seguros",
+        "4.2.1. Água/Saneamento",
+        "4.2.2. Energia",
+        "4.2.3. Internet/Telefonia",
+        "4.3.01. Sistema ERP - Olist",
+        "4.3.03. Google Workspace",
+        "4.3.04. ChatGPT - IA",
+        "4.3.07. Meta Verified",
+        "4.3.09. E-mail Titan",
+        "4.3.10. Reclame Aqui",
+        "4.3.3. Outros Softwares e Sistemas",
+        "4.3.13. Nuvemshop - Site Próprio Mensalidade",
+        "4.4.1. Contabilidade",
+        "4.4.8. Serviços Cartorários Gerais",
+        "4.6.1. Copa e Cozinha",
+        "4.6.2. Higiene e Limpeza",
+        "4.6.3. Mercado em Geral",
+        "4.6.4. Peças de Manutenção/Reparos",
+        "5.6.3. Uniformes e EPIs",
+        "7.1.1. Manutenção de conta",
+        "7.2.1. Juros e multa de atrasos",
+        "8.2.1. Compra de Equip. Produção",
+        "8.2.2. Compra de Equip. Administrativo",
+        "8.2.4. Benfeitoria Imóvel de Terceiros",
+        "8.5.1. Pagamento Cartão Caixa",
+        "8.5.2. Pagamento Cartão Santander",
+        "8.5.3. Pagamento Cartão Mercado Pago",
+        "8.5.4. Pagamento Cartão Cresol",
+        "8.6.1. Transferência entre Contas",
+        "8.6.4.1. Ajustes de Conciliação",
+        "8.6.5. Estorno de Lançamentos – Crédito",
+        "9.2.1.1. Joscimario Junior - Retiradas",
+        "9.2.1.2. Guilherme Eller - Retiradas",
+        "9.2.1.3. Joscimario Eller - Retiradas",
+        "9.2.1.4. Jorge Maluche - Retiradas",
+        "000020. Dúvida na categorizaçao/origem"
+    ],
+    "regras_classificacao": [
+        {
+            "padrao": "POSTO|COMBUSTIVEL|GASOLINA|DIESEL|ETANOL|SHELL|IPIRANGA|PETROLAGES|POSTO TONIA|IPIRELLA|PETRO",
+            "categoria": "3.3.1. Combustível"
+        },
+        {
+            "padrao": "FILTROLAGES|GOTA AUTO|LAVACAO|MECANICO|REVISAO|OFICINA|CORAL METAIS|TROCA DE OLEO",
+            "categoria": "3.3.2. Manutenções e Revisões"
+        },
+        {
+            "padrao": "PEDAGIO|PEDÁGIO|AUTOPISTA|VIACOSTEIRA|CONCESSIONARIA CATARINENSE",
+            "categoria": "3.3.3. Pedágios"
+        },
+        {
+            "padrao": "CD ANGELONI|GIASSI SUPERM|DESCARGA|COBRANÇAS DE DESCARGAS",
+            "categoria": "3.3.4. Cobranças de Descargas em CD's"
+        },
+        {
+            "padrao": "GOOGLE.*ADS|DL GOOGLE|GOOGLE.*TRAFEGO|GOOGLE.*INSTAG",
+            "categoria": "3.5.3. Google - Trafego Pago"
+        },
+        {
+            "padrao": "META.*ADS|FACEBOOK.*ADS|INSTAGRAM.*ADS|META.*TRAFEGO",
+            "categoria": "3.5.4. Meta - Trafego Pago"
+        },
+        {
+            "padrao": "HOTEL|BOOKING|AIRBNB|HOSPEDAGEM|POUSADA|VOB HOTEL|RENE ANGELO",
+            "categoria": "3.9.1. Passagem/Hospedagem"
+        },
+        {
+            "padrao": "RESTAURANTE|IFOOD|LANCHONETE|PADARIA|CAFE|MCDONALD|BURGER|SUBWAY|PIZZARIA|CASEIRINHO|PISTA 4|MODESTO|ANGELONI POSTO|BAGGIO|BERTOLDI|LANCHONETE|FREITAS LANCH|BOINABRASA",
+            "categoria": "3.9.2. Alimentação"
+        },
+        {
+            "padrao": "UBER|99|TAXI|CABIFY|ESTACIONAMENTO",
+            "categoria": "3.9.3. Combustível/Locomocação"
+        },
+        {
+            "padrao": "TINY ERP|OLIST",
+            "categoria": "4.3.01. Sistema ERP - Olist"
+        },
+        {
+            "padrao": "GOOGLE WORKSPACE|GOOGLE.*WORKSPACE|G SUITE",
+            "categoria": "4.3.03. Google Workspace"
+        },
+        {
+            "padrao": "CHATGPT|OPENAI",
+            "categoria": "4.3.04. ChatGPT - IA"
+        },
+        {
+            "padrao": "META VERIFIED|META.*VERIFIED",
+            "categoria": "4.3.07. Meta Verified"
+        },
+        {
+            "padrao": "HOSTGATOR|TITAN|EMAIL",
+            "categoria": "4.3.09. E-mail Titan"
+        },
+        {
+            "padrao": "RECLAMEAQUI|RECLAME AQUI|OBVIO BRASIL",
+            "categoria": "4.3.10. Reclame Aqui"
+        },
+        {
+            "padrao": "ADOBE|MICROSOFT|ZOOM|SLACK|NOTION|GITHUB|UMBLER|NUVEMSHOP",
+            "categoria": "4.3.3. Outros Softwares e Sistemas"
+        },
+        {
+            "padrao": "CARTORIO|NOTARIO|REGISTRO|CARTORARIO",
+            "categoria": "4.4.8. Serviços Cartorários Gerais"
+        },
+        {
+            "padrao": "MERCADOLIVRE\\*AUTOMACAO|MERCADOLIVRE\\*TECFAG",
+            "categoria": "8.2.2. Compra de Equip. Administrativo"
+        },
+        {
+            "padrao": "MERCADOLIVRE|MERCADOPAGO|MP\\*|EC \\*",
+            "categoria": "000020. Dúvida na categorizaçao/origem"
+        },
+        {
+            "padrao": "MAGALU|MAGAZINE LUIZA|AMERICANAS|AMAZON|SHOPEE|CASAS BAHIA",
+            "categoria": "000020. Dúvida na categorizaçao/origem"
+        },
+        {
+            "padrao": "SUPERMERCADO|ATACADAO|KOMPRAO|STOK CENTER|SUPERMERCADOS|KOCH|MACRIS|DISTRIBUIDORA AGOSTI",
+            "categoria": "4.6.3. Mercado em Geral"
+        },
+        {
+            "padrao": "ESPINDULA|BRUSFER|ADI MONTE|LOJA DO MDF|ECOM COMERCIO|LOJAS BERLANDA|LOJAS KOERICH|MATERIAL|PEÇAS|PABEL|MATERIAL ELET",
+            "categoria": "4.6.4. Peças de Manutenção/Reparos"
+        },
+        {
+            "padrao": "ALLIANZ|PORTO SEGURO|BRADESCO SEGUROS|MAPFRE|SEGURO",
+            "categoria": "9.2.1.2. Guilherme Eller - Retiradas"
+        },
+        {
+            "padrao": "PLASNOX",
+            "categoria": "8.2.1. Compra de Equip. Produção"
+        },
+        {
+            "padrao": "AJUSTE CREDITO|ESTORNO",
+            "categoria": "8.6.5. Estorno de Lançamentos – Crédito"
+        },
+        {
+            "padrao": "OBRIGADO PELO PAGAMENTO|PAGAMENTO CARTAO|PAGAMENTO FATURA",
+            "categoria": "8.6.4.1. Ajustes de Conciliação"
+        },
+        {
+            "padrao": "TARIFA CARTAO|TARIFA CART|MANUTENCAO DE CONTA",
+            "categoria": "7.1.1. Manutenção de conta"
+        },
+        {
+            "padrao": "VINDI|YUZER|CONDOMINIO",
+            "categoria": "4.1.1. Aluguel"
+        }
+    ]
+}

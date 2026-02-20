@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repositório Olist — Calisul</title>
+    <meta name="description"
+        content="Repositório de dados do Olist/Tiny ERP para inteligência artificial de categorização.">
+    <link rel="stylesheet" href="/css/design-system.css">
+    <style>
+        /* ─── Sync Section ─────────────────────────────── */
+        .sync-section {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .sync-progress {
+            flex: 1;
+            min-width: 200px;
+            display: none;
+        }
+
+        .sync-progress.active {
+            display: block;
+        }
+
+        .progress-bar-wrapper {
+            height: 8px;
+            background: var(--bg-input);
+            border-radius: var(--radius-pill);
+            overflow: hidden;
+            margin-bottom: 6px;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--blue), var(--cyan));
+            border-radius: var(--radius-pill);
+            transition: width 0.4s ease;
+            width: 0%;
+        }
+
+        .sync-status {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .sync-status .entity-name {
+            color: var(--blue);
+            font-weight: 600;
+        }
+
+        /* ─── Tabs ─────────────────────────────────────── */
+        .repo-tabs {
+            display: flex;
+            gap: 4px;
+            border-bottom: 2px solid var(--border-muted);
+            margin-bottom: 20px;
+        }
+
+        .repo-tab {
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -2px;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+        }
+
+        .repo-tab:hover {
+            color: var(--text-primary);
+            background: var(--bg-hover);
+        }
+
+        .repo-tab.active {
+            color: var(--blue);
+            border-bottom-color: var(--blue);
+        }
+
+        .repo-tab .tab-count {
+            font-size: 11px;
+            font-weight: 700;
+            background: var(--bg-card-alt);
+            padding: 2px 8px;
+            border-radius: var(--radius-pill);
+            margin-left: 6px;
+        }
+
+        .repo-tab.active .tab-count {
+            background: var(--blue-light);
+            color: var(--blue);
+        }
+
+        .tab-panel {
+            display: none;
+        }
+
+        .tab-panel.active {
+            display: block;
+        }
+
+        /* ─── Summary cards row ────────────────────────── */
+        .summary-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 16px 20px;
+            box-shadow: var(--shadow-card);
+        }
+
+        .summary-card h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .summary-list {
+            list-style: none;
+        }
+
+        .summary-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+            border-bottom: 1px solid var(--border-muted);
+        }
+
+        .summary-list li:last-child {
+            border-bottom: none;
+        }
+
+        .summary-list .label {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .summary-list .value {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-left: 12px;
+            white-space: nowrap;
+        }
+
+        /* ─── Table search ─────────────────────────────── */
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .table-info {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ─── Pagination ───────────────────────────────── */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .pagination button {
+            padding: 6px 14px;
+            border-radius: var(--radius-pill);
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            transition: all var(--transition-fast);
+        }
+
+        .pagination button:hover:not(:disabled) {
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .pagination .page-info {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        /* ─── Empty state ──────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+        }
+
+        .empty-state .title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .empty-state .desc {
+            font-size: 13px;
+        }
+
+        /* ─── Responsive table ─────────────────────────── */
+        .olist-table td.td-desc {
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="erp-layout">
+        <!-- Sidebar injected by JS -->
+        <main class="erp-main">
+            <div class="erp-breadcrumb">
+                <a href="/">Central Financeira</a>
+                <span class="sep">›</span>
+                <span class="current">Repositório</span>
+            </div>
+
+            <div class="page-header">
+                <h1>🧠 Repositório Olist</h1>
+                <div class="page-header-actions sync-section">
+                    <div class="sync-progress" id="syncProgress">
+                        <div class="progress-bar-wrapper">
+                            <div class="progress-bar-fill" id="progressBar"></div>
+                        </div>
+                        <div class="sync-status" id="syncStatus">Aguardando...</div>
+                    </div>
+                    <button class="btn btn-primary" id="btnSync" onclick="startSync()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10" />
+                            <polyline points="1 20 1 14 7 14" />
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                        </svg>
+                        Sincronizar Olist
+                    </button>
+                </div>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="kpi-grid" id="kpiGrid">
+                <div class="kpi-card accent-blue">
+                    <div class="kpi-label">Contas a Pagar</div>
+                    <div class="kpi-value" id="kpiCP">—</div>
+                    <div class="kpi-sub" id="kpiCPSub">Último sync: nunca</div>
+                </div>
+                <div class="kpi-card accent-green">
+                    <div class="kpi-label">Contas a Receber</div>
+                    <div class="kpi-value" id="kpiCR">—</div>
+                    <div class="kpi-sub" id="kpiCRSub">Último sync: nunca</div>
+                </div>
+                <div class="kpi-card accent-purple">
+                    <div class="kpi-label">Fornecedores</div>
+                    <div class="kpi-value" id="kpiContatos">—</div>
+                    <div class="kpi-sub" id="kpiContatosSub">Último sync: nunca</div>
+                </div>
+                <div class="kpi-card accent-orange">
+                    <div class="kpi-label">Notas de Entrada</div>
+                    <div class="kpi-value" id="kpiNE">—</div>
+                    <div class="kpi-sub" id="kpiNESub">Último sync: nunca</div>
+                </div>
+            </div>
+
+            <!-- Summaries -->
+            <div class="summary-row" id="summaryRow">
+                <div class="summary-card">
+                    <h3>Top 10 Categorias (por volume)</h3>
+                    <ul class="summary-list" id="topCategorias">
+                        <li><span class="label">Sem dados</span><span class="value">—</span></li>
+                    </ul>
+                </div>
+                <div class="summary-card">
+                    <h3>Top 10 Fornecedores (por valor)</h3>
+                    <ul class="summary-list" id="topFornecedores">
+                        <li><span class="label">Sem dados</span><span class="value">—</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Tabs + Data Tables -->
+            <div class="section">
+                <div class="repo-tabs" id="repoTabs">
+                    <button class="repo-tab active" data-entity="contas_pagar">
+                        Contas a Pagar <span class="tab-count" id="tabCountCP">0</span>
+                    </button>
+                    <button class="repo-tab" data-entity="contas_receber">
+                        Contas a Receber <span class="tab-count" id="tabCountCR">0</span>
+                    </button>
+                    <button class="repo-tab" data-entity="contatos">
+                        Fornecedores <span class="tab-count" id="tabCountContatos">0</span>
+                    </button>
+                    <button class="repo-tab" data-entity="notas_entrada">
+                        Notas de Entrada <span class="tab-count" id="tabCountNE">0</span>
+                    </button>
+                </div>
+
+                <div class="table-toolbar">
+                    <div class="filter-search">
+                        <span class="search-icon">
+                            <svg viewBox="0 0 24 24">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                        </span>
+                        <input type="text" id="tableSearch" placeholder="Buscar registros..."
+                            oninput="onSearchChange()">
+                    </div>
+                    <div class="table-info" id="tableInfo">—</div>
+                </div>
+
+                <!-- Contas a Pagar -->
+                <div class="tab-panel active" id="panel_contas_pagar">
+                    <div class="olist-table-wrapper">
+                        <table class="olist-table">
+                            <thead>
+                                <tr>
+                                    <th>Fornecedor</th>
+                                    <th>Descrição</th>
+                                    <th>Categoria</th>
+                                    <th>Valor</th>
+                                    <th>Vencimento</th>
+                                    <th>Situação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody_contas_pagar"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Contas a Receber -->
+                <div class="tab-panel" id="panel_contas_receber">
+                    <div class="olist-table-wrapper">
+                        <table class="olist-table">
+                            <thead>
+                                <tr>
+                                    <th>Cliente</th>
+                                    <th>Descrição</th>
+                                    <th>Valor</th>
+                                    <th>Vencimento</th>
+                                    <th>Situação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody_contas_receber"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Contatos -->
+                <div class="tab-panel" id="panel_contatos">
+                    <div class="olist-table-wrapper">
+                        <table class="olist-table">
+                            <thead>
+                                <tr>
+                                    <th>Nome</th>
+                                    <th>Fantasia</th>
+                                    <th>CPF/CNPJ</th>
+                                    <th>Cidade</th>
+                                    <th>UF</th>
+                                    <th>Situação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody_contatos"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Notas de Entrada -->
+                <div class="tab-panel" id="panel_notas_entrada">
+                    <div class="olist-table-wrapper">
+                        <table class="olist-table">
+                            <thead>
+                                <tr>
+                                    <th>Número</th>
+                                    <th>Fornecedor</th>
+                                    <th>Valor</th>
+                                    <th>Emissão</th>
+                                    <th>Situação</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody_notas_entrada"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/sidebar.js"></script>
+    <script src="/js/theme-toggle.js"></script>
+    <script>
+        /* ═══════════════════════════════════════════════════
+           Repositório Olist — Frontend Logic
+           ═══════════════════════════════════════════════════ */
+
+        let currentEntity = 'contas_pagar';
+        let currentPage = 1;
+        let searchDebounce = null;
+
+        // ─── Init ─────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadData();
+            setupTabs();
+        });
+
+        // ─── Stats ────────────────────────────────────────
+        async function loadStats() {
+            try {
+                const res = await fetch('/api/repository/stats');
+                const data = await res.json();
+                if (!data.sucesso) return;
+
+                // KPIs
+                document.getElementById('kpiCP').textContent = data.counts.contas_pagar.toLocaleString('pt-BR');
+                document.getElementById('kpiCR').textContent = data.counts.contas_receber.toLocaleString('pt-BR');
+                document.getElementById('kpiContatos').textContent = data.counts.contatos.toLocaleString('pt-BR');
+                document.getElementById('kpiNE').textContent = data.counts.notas_entrada.toLocaleString('pt-BR');
+
+                // Last sync
+                updateSyncSub('kpiCPSub', data.lastSync.contas_pagar);
+                updateSyncSub('kpiCRSub', data.lastSync.contas_receber);
+                updateSyncSub('kpiContatosSub', data.lastSync.contatos);
+                updateSyncSub('kpiNESub', data.lastSync.notas_entrada);
+
+                // Tab counts
+                document.getElementById('tabCountCP').textContent = data.counts.contas_pagar.toLocaleString('pt-BR');
+                document.getElementById('tabCountCR').textContent = data.counts.contas_receber.toLocaleString('pt-BR');
+                document.getElementById('tabCountContatos').textContent = data.counts.contatos.toLocaleString('pt-BR');
+                document.getElementById('tabCountNE').textContent = data.counts.notas_entrada.toLocaleString('pt-BR');
+
+                // Summaries
+                renderSummaries(data.summaries);
+            } catch (err) {
+                console.error('Erro ao carregar stats:', err);
+            }
+        }
+
+        function updateSyncSub(elId, syncInfo) {
+            const el = document.getElementById(elId);
+            if (!syncInfo) {
+                el.textContent = 'Último sync: nunca';
+                return;
+            }
+            const statusEmoji = syncInfo.status === 'done' ? '✅' : syncInfo.status === 'error' ? '❌' : '⏳';
+            el.textContent = `${statusEmoji} ${syncInfo.records_imported} registros — ${syncInfo.finished_at || '...'}`;
+        }
+
+        function renderSummaries(summaries) {
+            // Top categorias
+            const catList = document.getElementById('topCategorias');
+            if (summaries.top_categorias && summaries.top_categorias.length > 0) {
+                catList.innerHTML = summaries.top_categorias.map(c =>
+                    `<li><span class="label" title="${c.categoria}">${c.categoria}</span><span class="value">${c.count}x</span></li>`
+                ).join('');
+            }
+
+            // Top fornecedores
+            const fornList = document.getElementById('topFornecedores');
+            if (summaries.top_fornecedores && summaries.top_fornecedores.length > 0) {
+                fornList.innerHTML = summaries.top_fornecedores.map(f =>
+                    `<li><span class="label" title="${f.fornecedor}">${f.fornecedor}</span><span class="value">R$ ${f.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></li>`
+                ).join('');
+            }
+        }
+
+        // ─── Tabs ─────────────────────────────────────────
+        function setupTabs() {
+            document.querySelectorAll('.repo-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    document.querySelectorAll('.repo-tab').forEach(t => t.classList.remove('active'));
+                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentEntity = tab.dataset.entity;
+                    document.getElementById(`panel_${currentEntity}`).classList.add('active');
+                    currentPage = 1;
+                    document.getElementById('tableSearch').value = '';
+                    loadData();
+                });
+            });
+        }
+
+        // ─── Data table ───────────────────────────────────
+        async function loadData() {
+            try {
+                const search = document.getElementById('tableSearch').value;
+                const res = await fetch(`/api/repository/data/${currentEntity}?page=${currentPage}&limit=50&search=${encodeURIComponent(search)}`);
+                const data = await res.json();
+                if (!data.sucesso) return;
+
+                renderTable(currentEntity, data.rows);
+                renderPagination(data);
+                document.getElementById('tableInfo').textContent =
+                    `${data.total.toLocaleString('pt-BR')} registros — Página ${data.page} de ${data.totalPages}`;
+            } catch (err) {
+                console.error('Erro ao carregar dados:', err);
+            }
+        }
+
+        function renderTable(entity, rows) {
+            const tbody = document.getElementById(`tbody_${entity}`);
+            if (!rows || rows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">
+                <div class="empty-state"><div class="icon">📭</div><div class="title">Sem dados</div><div class="desc">Clique em "Sincronizar Olist" para importar</div></div>
+            </td></tr>`;
+                return;
+            }
+
+            const renderers = {
+                contas_pagar: r => `
+                <tr>
+                    <td>${esc(r.fornecedor)}</td>
+                    <td class="td-desc" title="${esc(r.historico)}">${esc(r.historico)}</td>
+                    <td><span class="badge badge-blue">${esc(r.categoria || '—')}</span></td>
+                    <td style="text-align:right;font-weight:600">R$ ${parseFloat(r.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td>${esc(r.data_vencimento)}</td>
+                    <td>${situacaoBadge(r.situacao)}</td>
+                </tr>`,
+                contas_receber: r => `
+                <tr>
+                    <td>${esc(r.cliente)}</td>
+                    <td class="td-desc" title="${esc(r.historico)}">${esc(r.historico)}</td>
+                    <td style="text-align:right;font-weight:600">R$ ${parseFloat(r.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td>${esc(r.data_vencimento)}</td>
+                    <td>${situacaoBadge(r.situacao)}</td>
+                </tr>`,
+                contatos: r => `
+                <tr>
+                    <td>${esc(r.nome)}</td>
+                    <td>${esc(r.fantasia)}</td>
+                    <td style="font-family:monospace;font-size:12px">${esc(r.cpf_cnpj)}</td>
+                    <td>${esc(r.cidade)}</td>
+                    <td>${esc(r.uf)}</td>
+                    <td>${situacaoBadge(r.situacao)}</td>
+                </tr>`,
+                notas_entrada: r => `
+                <tr>
+                    <td style="font-weight:600">${esc(r.numero)}</td>
+                    <td>${esc(r.fornecedor)}</td>
+                    <td style="text-align:right;font-weight:600">R$ ${parseFloat(r.valor).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
+                    <td>${esc(r.data_emissao)}</td>
+                    <td>${situacaoBadge(r.situacao)}</td>
+                </tr>`,
+            };
+
+            tbody.innerHTML = rows.map(renderers[entity]).join('');
+        }
+
+        function situacaoBadge(situacao) {
+            const s = (situacao || '').toLowerCase();
+            if (s.includes('pago') || s === 'paga' || s === 'recebida') return `<span class="badge badge-green">${esc(situacao)}</span>`;
+            if (s.includes('abert') || s === 'aberto') return `<span class="badge badge-orange">${esc(situacao)}</span>`;
+            if (s.includes('cancel') || s.includes('vencid')) return `<span class="badge badge-red">${esc(situacao)}</span>`;
+            if (s === 'ativo' || s === 'a') return `<span class="badge badge-green">${esc(situacao || 'Ativo')}</span>`;
+            if (s === 'autorizada' || s === 'aprovada') return `<span class="badge badge-green">${esc(situacao)}</span>`;
+            return `<span class="badge" style="background:var(--bg-card-alt);color:var(--text-secondary)">${esc(situacao || '—')}</span>`;
+        }
+
+        function esc(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function renderPagination(data) {
+            const el = document.getElementById('pagination');
+            if (data.totalPages <= 1) {
+                el.innerHTML = '';
+                return;
+            }
+            el.innerHTML = `
+            <button ${data.page <= 1 ? 'disabled' : ''} onclick="goPage(${data.page - 1})">← Anterior</button>
+            <span class="page-info">Página ${data.page} de ${data.totalPages}</span>
+            <button ${data.page >= data.totalPages ? 'disabled' : ''} onclick="goPage(${data.page + 1})">Próxima →</button>
+        `;
+        }
+
+        function goPage(page) {
+            currentPage = page;
+            loadData();
+        }
+
+        function onSearchChange() {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(() => {
+                currentPage = 1;
+                loadData();
+            }, 400);
+        }
+
+        // ─── SSE Sync ─────────────────────────────────────
+        function startSync() {
+            const btn = document.getElementById('btnSync');
+            const progressEl = document.getElementById('syncProgress');
+            const progressBar = document.getElementById('progressBar');
+            const statusEl = document.getElementById('syncStatus');
+
+            btn.disabled = true;
+            btn.innerHTML = '<span style="animation:spin 1s linear infinite;display:inline-block">⏳</span> Sincronizando...';
+            progressEl.classList.add('active');
+            progressBar.style.width = '0%';
+            statusEl.textContent = 'Conectando ao Olist...';
+
+            const totalEntities = 4;
+            const es = new EventSource('/api/repository/sync');
+
+            es.addEventListener('entity_start', (e) => {
+                const data = JSON.parse(e.data);
+                statusEl.innerHTML = `Importando <span class="entity-name">${data.label}</span>...`;
+            });
+
+            es.addEventListener('progress', (e) => {
+                const data = JSON.parse(e.data);
+                // Overall progress = (completedEntities + currentPageProgress) / totalEntities
+                const entityProgress = data.totalPages > 0 ? data.page / data.totalPages : 0;
+                const overall = ((data.entityIndex + entityProgress) / totalEntities) * 100;
+                progressBar.style.width = `${overall}%`;
+                statusEl.innerHTML = `<span class="entity-name">${data.entity}</span> — Pág. ${data.page}/${data.totalPages} (${data.totalRecords} registros)`;
+            });
+
+            es.addEventListener('entity_done', (e) => {
+                const data = JSON.parse(e.data);
+                const overall = (data.index / totalEntities) * 100;
+                progressBar.style.width = `${overall}%`;
+                statusEl.innerHTML = `✅ ${data.label}: ${data.count} registros importados`;
+            });
+
+            es.addEventListener('entity_error', (e) => {
+                const data = JSON.parse(e.data);
+                statusEl.innerHTML = `❌ ${data.label}: ${data.error}`;
+            });
+
+            es.addEventListener('complete', (e) => {
+                es.close();
+                const data = JSON.parse(e.data);
+                progressBar.style.width = '100%';
+                statusEl.textContent = '✅ Sincronização concluída!';
+
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sincronizar Olist`;
+
+                // Refresh all data
+                loadStats();
+                loadData();
+
+                // Hide progress after 5s
+                setTimeout(() => {
+                    progressEl.classList.remove('active');
+                }, 5000);
+            });
+
+            es.onerror = () => {
+                es.close();
+                statusEl.textContent = '❌ Erro na conexão com o servidor';
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Sincronizar Olist`;
+            };
+        }
+
+        // Spinner animation
+        if (!document.getElementById('spinStyle')) {
+            const style = document.createElement('style');
+            style.id = 'spinStyle';
+            style.textContent = '@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }';
+            document.head.appendChild(style);
+        }
+    </script>
+</body>
+
+</html>

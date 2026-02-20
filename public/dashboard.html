@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Calisul</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <script src="/js/theme-toggle.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <style>
+        /* ─── Dashboard-specific ─── */
+        .welcome-banner {
+            background: linear-gradient(135deg, rgba(0, 94, 252, 0.08), rgba(99, 102, 241, 0.06));
+            border: 1px solid rgba(0, 94, 252, 0.15);
+            border-radius: var(--radius-lg);
+            padding: 28px 32px;
+            margin-bottom: 28px;
+        }
+
+        .welcome-banner h2 {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .welcome-banner p {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        /* KPI accent bars */
+        .kpi-card.accent-blue {
+            border-top: 3px solid var(--blue);
+        }
+
+        .kpi-card.accent-green {
+            border-top: 3px solid var(--green);
+        }
+
+        .kpi-card.accent-orange {
+            border-top: 3px solid var(--orange);
+        }
+
+        .kpi-card.accent-red {
+            border-top: 3px solid var(--red);
+        }
+
+        /* Recent list */
+        .recent-section {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            margin-top: 28px;
+        }
+
+        .recent-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .recent-header h3 {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .recent-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            transition: background var(--transition-fast);
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .recent-item:hover {
+            background: var(--bg-hover);
+        }
+
+        .recent-item+.recent-item {
+            border-top: 1px solid var(--border-muted);
+        }
+
+        .recent-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+            background: rgba(0, 94, 252, 0.08);
+        }
+
+        .recent-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .recent-info h4 {
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .recent-info p {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .recent-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+
+        /* Progress mini */
+        .progress-mini {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-mini .bar {
+            width: 60px;
+            height: 4px;
+            background: var(--border-muted);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-mini .bar .fill {
+            height: 100%;
+            background: var(--green);
+            border-radius: 2px;
+        }
+
+        .empty-recent {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="erp-layout">
+        <!-- Sidebar injected by sidebar.js -->
+
+        <!-- Main -->
+        <main class="erp-main">
+            <!-- Mobile toggle -->
+            <button class="mobile-toggle" id="mobileToggle">☰</button>
+
+            <!-- Breadcrumb -->
+            <div class="erp-breadcrumb">
+                <span class="current">dashboard</span>
+            </div>
+
+            <div class="erp-content">
+                <!-- Welcome -->
+                <div class="welcome-banner">
+                    <h2>Central Financeira — Cartões</h2>
+                    <p>Visão geral dos extratos e conciliações de cartão de crédito</p>
+                </div>
+
+                <!-- KPIs -->
+                <div class="kpi-grid" id="kpiGrid">
+                    <div class="kpi-card accent-blue">
+                        <div class="kpi-label">Extratos importados</div>
+                        <div class="kpi-value" id="kpiExtratos">—</div>
+                        <div class="kpi-sub" id="kpiExtratosSub">carregando...</div>
+                    </div>
+                    <div class="kpi-card accent-green">
+                        <div class="kpi-label">Transações</div>
+                        <div class="kpi-value" id="kpiTransacoes">—</div>
+                        <div class="kpi-sub" id="kpiTransacoesSub"></div>
+                    </div>
+                    <div class="kpi-card accent-orange">
+                        <div class="kpi-label">Conciliadas</div>
+                        <div class="kpi-value" id="kpiConciliadas">—</div>
+                        <div class="kpi-sub" id="kpiConciliadasSub"></div>
+                    </div>
+                    <div class="kpi-card accent-red">
+                        <div class="kpi-label">Valor total</div>
+                        <div class="kpi-value" id="kpiValor">—</div>
+                        <div class="kpi-sub" id="kpiValorSub"></div>
+                    </div>
+                </div>
+
+                <!-- Recent Extratos -->
+                <div class="recent-section">
+                    <div class="recent-header">
+                        <h3>📋 Últimos extratos importados</h3>
+                        <a href="/extratos-cartao.html" class="btn btn-outline btn-sm">Ver todos</a>
+                    </div>
+                    <div id="recentList">
+                        <div class="empty-recent">Carregando...</div>
+                    </div>
+                </div>
+
+                <!-- Recent Conciliações status -->
+                <div class="recent-section" style="margin-top: 20px;">
+                    <div class="recent-header">
+                        <h3>🔄 Progresso por cartão</h3>
+                        <a href="/conciliacoes.html" class="btn btn-outline btn-sm">Ver conciliações</a>
+                    </div>
+                    <div id="cardProgress">
+                        <div class="empty-recent">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ─── Init ─────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+        });
+
+        // ─── Data ─────────────────────────────────────
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/api/card-statements');
+                const data = await res.json();
+                const statements = data.statements || [];
+
+                renderKPIs(statements);
+                renderRecent(statements);
+                renderCardProgress(statements);
+            } catch (e) {
+                console.error('Erro ao carregar dashboard:', e);
+            }
+        }
+
+        function renderKPIs(statements) {
+            const totalExtratos = statements.length;
+            const totalTransacoes = statements.reduce((s, st) => s + (st.total_transactions || 0), 0);
+            const totalConciliadas = statements.reduce((s, st) => s + (st.reconciled_count || 0), 0);
+            const totalValor = statements.reduce((s, st) => s + (st.total_amount || 0), 0);
+            const pctConciliadas = totalTransacoes > 0 ? Math.round((totalConciliadas / totalTransacoes) * 100) : 0;
+
+            document.getElementById('kpiExtratos').textContent = totalExtratos;
+            document.getElementById('kpiExtratosSub').textContent = totalExtratos === 0 ? 'nenhum extrato' : `de ${getDistinctCards(statements).length} cartões`;
+
+            document.getElementById('kpiTransacoes').textContent = totalTransacoes.toLocaleString('pt-BR');
+            document.getElementById('kpiTransacoesSub').textContent = `em ${totalExtratos} extratos`;
+
+            document.getElementById('kpiConciliadas').textContent = `${pctConciliadas}%`;
+            document.getElementById('kpiConciliadasSub').textContent = `${totalConciliadas} de ${totalTransacoes}`;
+
+            document.getElementById('kpiValor').textContent = `R$ ${totalValor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            document.getElementById('kpiValorSub').textContent = 'soma de todas as transações';
+        }
+
+        function renderRecent(statements) {
+            const container = document.getElementById('recentList');
+
+            if (statements.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-recent">
+                        <p>Nenhum extrato importado ainda</p>
+                        <a href="/extratos-cartao.html" class="btn btn-blue btn-sm" style="margin-top: 12px; display: inline-flex;">
+                            Importar primeiro extrato
+                        </a>
+                    </div>
+                `;
+                return;
+            }
+
+            // Sort by date desc, take top 5
+            const recent = [...statements]
+                .sort((a, b) => (b.statement_date || '').localeCompare(a.statement_date || ''))
+                .slice(0, 5);
+
+            container.innerHTML = recent.map(s => {
+                const date = formatDate(s.statement_date);
+                const pct = s.total_transactions > 0
+                    ? Math.round((s.reconciled_count / s.total_transactions) * 100)
+                    : 0;
+                return `
+                    <a class="recent-item" href="/extrato-detalhe.html?id=${s.id}">
+                        <div class="recent-icon">💳</div>
+                        <div class="recent-info">
+                            <h4>${escapeHtml(s.filename)}</h4>
+                            <p>${escapeHtml(s.card_name || '—')} · ${escapeHtml(s.financial_account || '—')}</p>
+                        </div>
+                        <div class="recent-meta">
+                            <div>${date}</div>
+                            <div class="progress-mini" style="margin-top: 4px;">
+                                <div class="bar"><div class="fill" style="width: ${pct}%"></div></div>
+                                <span style="font-size: 11px; color: var(--text-muted);">${s.reconciled_count}/${s.total_transactions}</span>
+                            </div>
+                        </div>
+                    </a>
+                `;
+            }).join('');
+        }
+
+        function renderCardProgress(statements) {
+            const container = document.getElementById('cardProgress');
+            const cards = getDistinctCards(statements);
+
+            if (cards.length === 0) {
+                container.innerHTML = '<div class="empty-recent">Nenhum dado disponível</div>';
+                return;
+            }
+
+            container.innerHTML = cards.map(card => {
+                const cardStatements = statements.filter(s => s.card_name === card);
+                const totalTx = cardStatements.reduce((s, st) => s + (st.total_transactions || 0), 0);
+                const reconciledTx = cardStatements.reduce((s, st) => s + (st.reconciled_count || 0), 0);
+                const pct = totalTx > 0 ? Math.round((reconciledTx / totalTx) * 100) : 0;
+                const totalVal = cardStatements.reduce((s, st) => s + (st.total_amount || 0), 0);
+
+                return `
+                    <div class="recent-item" style="cursor: default;">
+                        <div class="recent-icon">💳</div>
+                        <div class="recent-info">
+                            <h4>${escapeHtml(card)}</h4>
+                            <p>${cardStatements.length} extrato${cardStatements.length !== 1 ? 's' : ''} · R$ ${totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        </div>
+                        <div class="recent-meta" style="text-align: right;">
+                            <div style="font-weight: 600; color: ${pct === 100 ? 'var(--green)' : 'var(--text-primary)'};">${pct}%</div>
+                            <div class="progress-mini" style="margin-top: 4px;">
+                                <div class="bar" style="width: 80px;"><div class="fill" style="width: ${pct}%"></div></div>
+                                <span style="font-size: 11px; color: var(--text-muted);">${reconciledTx}/${totalTx}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ─── Helpers ──────────────────────────────────
+        function getDistinctCards(statements) {
+            return [...new Set(statements.map(s => s.card_name).filter(Boolean))].sort();
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            return dateStr;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+
+    </script>
+</body>
+
+</html>

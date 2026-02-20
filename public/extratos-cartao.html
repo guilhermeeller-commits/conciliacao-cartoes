@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extratos de Cartão — Calisul</title>
+    <link rel="stylesheet" href="/css/design-system.css">
+    <script src="/js/theme-toggle.js"></script>
+    <script src="/js/sidebar.js"></script>
+    <style>
+        /* ─── Page-specific ─── */
+        .upload-modal .drop-zone {
+            border: 2px dashed var(--border-default);
+            border-radius: var(--radius-lg);
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all var(--transition-normal);
+            background: var(--bg-input);
+        }
+
+        .upload-modal .drop-zone:hover,
+        .upload-modal .drop-zone.dragover {
+            border-color: var(--blue);
+            background: rgba(56, 139, 253, 0.05);
+        }
+
+        .upload-modal .drop-zone .icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            opacity: 0.6;
+        }
+
+        .upload-modal .drop-zone h3 {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .upload-modal .drop-zone p {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .upload-modal .drop-zone input {
+            display: none;
+        }
+
+        .upload-modal .drop-zone.processing {
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* Table row clickable */
+        .olist-table tbody tr.clickable {
+            cursor: pointer;
+        }
+
+        .olist-table tbody tr.clickable:hover td {
+            background: rgba(56, 139, 253, 0.06);
+        }
+
+        /* Progress mini */
+        .progress-mini {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .progress-mini .bar {
+            flex: 1;
+            height: 4px;
+            background: var(--border-muted);
+            border-radius: 2px;
+            overflow: hidden;
+            min-width: 60px;
+        }
+
+        .progress-mini .bar .fill {
+            height: 100%;
+            background: var(--green);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+
+        /* Checkbox column */
+        .th-check,
+        .td-check {
+            width: 40px;
+            text-align: center;
+        }
+
+        .td-check input[type="checkbox"],
+        .th-check input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+            accent-color: var(--blue);
+        }
+
+        /* ─── Olist Filter Chips ─── */
+        .filter-chips {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .filter-chip:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .filter-chip.active {
+            border-color: var(--blue);
+            color: var(--blue);
+            background: rgba(56, 139, 253, 0.08);
+        }
+
+        .filter-chip .chip-icon {
+            font-size: 14px;
+        }
+
+        /* Card filter chips (smaller) */
+        .card-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+        }
+
+        .card-chip:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .card-chip.active {
+            background: rgba(56, 139, 253, 0.12);
+            border-color: var(--blue);
+            color: var(--blue);
+        }
+
+        /* ─── Period Popover (Olist style) ─── */
+        .filter-wrap {
+            position: relative;
+        }
+
+        .period-popover {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 0;
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            z-index: 100;
+            min-width: 340px;
+            overflow: hidden;
+        }
+
+        .period-popover.active {
+            display: block;
+        }
+
+        .period-popover-body {
+            padding: 20px;
+        }
+
+        /* Period label */
+        .period-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        /* Quick period chips */
+        .period-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .period-chip {
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .period-chip:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .period-chip.active {
+            border-color: var(--blue);
+            color: var(--blue);
+            background: rgba(56, 139, 253, 0.08);
+        }
+
+        .period-chip.clear-chip.active {
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        /* Date nav row (for "do dia" / "da semana" / "do mês") */
+        .date-nav-row {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .date-nav-row.visible {
+            display: flex;
+        }
+
+        .date-nav-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+
+        .date-nav-btn:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        .date-nav-label {
+            flex: 1;
+            text-align: center;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        /* Interval date inputs */
+        .interval-fields {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 16px;
+        }
+
+        .interval-fields.visible {
+            display: flex;
+        }
+
+        .interval-row {
+            display: flex;
+            align-items: center;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-md);
+            background: var(--bg-input);
+            overflow: hidden;
+        }
+
+        .interval-row .interval-label {
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            background: var(--bg-card-alt);
+            border-right: 1px solid var(--border-default);
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .interval-row input[type="date"] {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-primary);
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        .interval-row .calendar-icon {
+            padding: 8px 12px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        /* Popover footer actions */
+        .period-popover-footer {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border-top: 1px solid var(--border-muted);
+        }
+
+        .period-popover-footer .btn-apply {
+            padding: 8px 24px;
+            border-radius: 20px;
+            background: var(--blue-dark);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background var(--transition-fast);
+        }
+
+        .period-popover-footer .btn-apply:hover {
+            background: var(--blue);
+        }
+
+        .period-popover-footer .btn-cancel {
+            padding: 8px 16px;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .period-popover-footer .btn-cancel:hover {
+            color: var(--text-primary);
+        }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        .empty-state h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+        }
+
+        /* Upload result */
+        .upload-result {
+            margin-top: 16px;
+            padding: 16px;
+            background: var(--bg-card-alt);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-default);
+        }
+
+        .upload-result .result-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            padding: 4px 0;
+        }
+
+        .upload-result .result-row .label {
+            color: var(--text-muted);
+        }
+
+        .upload-result .result-row .value {
+            font-weight: 600;
+        }
+
+        /* ─── Selection Action Bar ─── */
+        .selection-bar {
+            display: none;
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 10px 20px;
+            z-index: 1500;
+            align-items: center;
+            gap: 16px;
+            animation: slideUp 0.2s ease;
+        }
+
+        .selection-bar.visible {
+            display: flex;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .selection-bar .sel-count {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .selection-bar .sel-count strong {
+            color: var(--blue);
+        }
+
+        .selection-bar .btn-delete-sel {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--red);
+            background: rgba(248, 81, 73, 0.1);
+            color: var(--red);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+        }
+
+        .selection-bar .btn-delete-sel:hover {
+            background: rgba(248, 81, 73, 0.2);
+        }
+
+        .selection-bar .btn-clear-sel {
+            padding: 6px 12px;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+        }
+
+        .selection-bar .btn-clear-sel:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 2000;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="erp-layout">
+        <!-- Sidebar injected by sidebar.js -->
+
+        <!-- Main -->
+        <main class="erp-main">
+            <!-- Mobile toggle -->
+            <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12" />
+                    <line x1="3" y1="6" x2="21" y2="6" />
+                    <line x1="3" y1="18" x2="21" y2="18" />
+                </svg>
+            </button>
+
+            <!-- Breadcrumb -->
+            <div class="erp-breadcrumb">
+                <a href="/">inicio</a>
+                <span class="sep">/</span>
+                <span>financas</span>
+                <span class="sep">/</span>
+                <span class="current">extratos de cartao</span>
+            </div>
+
+            <div class="erp-content">
+                <!-- Page Header -->
+                <div class="page-header">
+                    <h1>Extratos de cartão</h1>
+                    <div class="page-header-actions">
+                        <button class="btn btn-blue" id="btnImportar" onclick="openUploadModal()">
+                            importar extrato
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="filter-bar">
+                    <div class="filter-search">
+                        <span class="search-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8" />
+                                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg></span>
+                        <input type="text" id="searchInput" placeholder="Pesquise por nome" oninput="applyFilters()">
+                    </div>
+                    <div class="filter-chips">
+                        <div class="filter-wrap">
+                            <button class="filter-chip active" id="btnPeriod" onclick="togglePeriodPopover()">
+                                <span class="chip-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                        stroke-linejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                        <line x1="16" y1="2" x2="16" y2="6" />
+                                        <line x1="8" y1="2" x2="8" y2="6" />
+                                        <line x1="3" y1="10" x2="21" y2="10" />
+                                    </svg></span> por periodo
+                            </button>
+                            <div class="period-popover" id="periodPopover">
+                                <div class="period-popover-body">
+                                    <div class="period-label">Período</div>
+                                    <div class="period-chips">
+                                        <button class="period-chip" data-period="30d"
+                                            onclick="selectPeriod('30d')">últimos 30 dias</button>
+                                        <button class="period-chip clear-chip active" data-period="none"
+                                            onclick="selectPeriod('none')">sem filtro</button>
+                                        <button class="period-chip" data-period="day" onclick="selectPeriod('day')">do
+                                            dia</button>
+                                        <button class="period-chip" data-period="week" onclick="selectPeriod('week')">da
+                                            semana</button>
+                                        <button class="period-chip" data-period="month"
+                                            onclick="selectPeriod('month')">do mês</button>
+                                        <button class="period-chip" data-period="interval"
+                                            onclick="selectPeriod('interval')">intervalo</button>
+                                    </div>
+                                    <div class="date-nav-row" id="dateNavRow">
+                                        <button class="date-nav-btn" onclick="navigateDate(-1)">‹</button>
+                                        <span class="date-nav-label" id="dateNavLabel">19/02/2026</span>
+                                        <button class="date-nav-btn" onclick="navigateDate(1)">›</button>
+                                    </div>
+                                    <div class="interval-fields" id="intervalFields">
+                                        <div class="interval-row">
+                                            <span class="interval-label">De</span>
+                                            <input type="date" id="dateFrom" title="Data inicial">
+                                            <span class="calendar-icon"><svg width="14" height="14" viewBox="0 0 24 24"
+                                                    fill="none" stroke="currentColor" stroke-width="2">
+                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                                </svg></span>
+                                        </div>
+                                        <div class="interval-row">
+                                            <span class="interval-label">Até</span>
+                                            <input type="date" id="dateTo" title="Data final">
+                                            <span class="calendar-icon"><svg width="14" height="14" viewBox="0 0 24 24"
+                                                    fill="none" stroke="currentColor" stroke-width="2">
+                                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                                                    <line x1="16" y1="2" x2="16" y2="6" />
+                                                    <line x1="8" y1="2" x2="8" y2="6" />
+                                                    <line x1="3" y1="10" x2="21" y2="10" />
+                                                </svg></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="period-popover-footer">
+                                    <button class="btn-apply" onclick="applyPeriodFilter()">aplicar</button>
+                                    <button class="btn-cancel" onclick="cancelPeriodFilter()">cancelar</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="cardChips" class="filter-chips"></div>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="olist-table-wrapper" id="tableWrapper">
+                    <table class="olist-table">
+                        <thead>
+                            <tr>
+                                <th class="th-check"><input type="checkbox" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
+                                <th class="sortable" onclick="sortBy('statement_date')">
+                                    Data <span class="sort-arrow" id="sort-statement_date">⇅</span>
+                                </th>
+                                <th class="sortable" onclick="sortBy('filename')">
+                                    Arquivo <span class="sort-arrow" id="sort-filename">⇅</span>
+                                </th>
+                                <th class="sortable" onclick="sortBy('financial_account')">
+                                    Conta financeira <span class="sort-arrow" id="sort-financial_account">⇅</span>
+                                </th>
+                                <th class="sortable" onclick="sortBy('categorized')">
+                                    Categorizados/Total <span class="sort-arrow" id="sort-categorized">⇅</span>
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody">
+                            <!-- Dynamic rows -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination hidden" id="pagination">
+                    <span id="paginationInfo"></span>
+                    <div class="pagination-pages" id="paginationPages"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Upload Modal -->
+    <div class="modal-overlay upload-modal" id="uploadModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Importar extrato de cartão</h3>
+                <button class="btn btn-ghost btn-sm" onclick="closeUploadModal()" aria-label="Fechar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="drop-zone" id="dropZone">
+                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg></div>
+                    <h3>Arraste o PDF da fatura aqui</h3>
+                    <p>ou clique para selecionar um arquivo</p>
+                    <input type="file" id="fileInput" accept=".pdf">
+                </div>
+                <div id="uploadResult" class="hidden"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>Confirmar exclusão</h3>
+                <button class="btn btn-ghost btn-sm" onclick="closeDeleteModal()" aria-label="Fechar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" />
+                        <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); font-size: 14px;">
+                    Tem certeza que deseja excluir o extrato <strong id="deleteFilename"></strong>?
+                    <br><br>
+                    Todas as transações desse extrato serão removidas permanentemente.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline btn-sm" onclick="closeDeleteModal()">Cancelar</button>
+                <button class="btn btn-danger btn-sm" id="btnConfirmDelete" onclick="confirmDelete()">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Selection Action Bar -->
+    <div class="selection-bar" id="selectionBar">
+        <span class="sel-count" id="selCount"><strong>0</strong> selecionados</span>
+        <button class="btn-delete-sel" onclick="deleteSelected()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+            </svg>
+            Excluir selecionados
+        </button>
+        <button class="btn-clear-sel" onclick="clearSelection()">Limpar</button>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        // ─── State ────────────────────────────────────
+        let allStatements = [];
+        let filteredStatements = [];
+        let selectedIds = new Set();
+        let currentSort = { field: 'statement_date', dir: 'desc' };
+        let activeCardFilter = null;
+        let dateFromFilter = null;
+        let dateToFilter = null;
+        let deleteTargetId = null;
+
+        const PAGE_SIZE = 25;
+        let currentPage = 1;
+
+        // ─── Init ─────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            // Default: no date filter (sem filtro)
+            dateFromFilter = null;
+            dateToFilter = null;
+            loadStatements();
+            loadCardChips();
+            setupDropZone();
+        });
+
+        // ─── API ──────────────────────────────────────
+        async function loadStatements() {
+            try {
+                const res = await fetch('/api/card-statements');
+                const data = await res.json();
+                allStatements = data.statements || [];
+                applyFilters();
+            } catch (e) {
+                console.error('Erro ao carregar extratos:', e);
+                showToast('Erro ao carregar extratos', 'error');
+            }
+        }
+
+        async function loadCardChips() {
+            try {
+                const res = await fetch('/api/card-statements/cards');
+                const data = await res.json();
+                renderCardChips(data.cards || []);
+            } catch (e) {
+                console.error('Erro ao carregar cartões:', e);
+            }
+        }
+
+        // ─── Filters ─────────────────────────────────
+        function applyFilters() {
+            const search = document.getElementById('searchInput').value.toLowerCase().trim();
+
+            filteredStatements = allStatements.filter(s => {
+                if (search && !s.filename.toLowerCase().includes(search)) return false;
+                if (activeCardFilter && s.card_name !== activeCardFilter) return false;
+                if (dateFromFilter && s.statement_date < dateFromFilter) return false;
+                if (dateToFilter && s.statement_date > dateToFilter) return false;
+                return true;
+            });
+
+            // Sort
+            filteredStatements.sort((a, b) => {
+                let va = a[currentSort.field] || '';
+                let vb = b[currentSort.field] || '';
+
+                if (currentSort.field === 'categorized') {
+                    va = a.total_transactions > 0 ? (a.categorized_count || 0) / a.total_transactions : 0;
+                    vb = b.total_transactions > 0 ? (b.categorized_count || 0) / b.total_transactions : 0;
+                }
+
+                if (typeof va === 'string') va = va.toLowerCase();
+                if (typeof vb === 'string') vb = vb.toLowerCase();
+
+                if (va < vb) return currentSort.dir === 'asc' ? -1 : 1;
+                if (va > vb) return currentSort.dir === 'asc' ? 1 : -1;
+                return 0;
+            });
+
+            currentPage = 1;
+            renderTable();
+        }
+
+        function sortBy(field) {
+            if (currentSort.field === field) {
+                currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.dir = field === 'statement_date' ? 'desc' : 'asc';
+            }
+
+            // Update arrows
+            document.querySelectorAll('.sort-arrow').forEach(el => {
+                el.textContent = '⇅';
+                el.parentElement.classList.remove('sort-active');
+            });
+            const arrow = document.getElementById(`sort-${field}`);
+            if (arrow) {
+                arrow.textContent = currentSort.dir === 'asc' ? '↑' : '↓';
+                arrow.parentElement.classList.add('sort-active');
+            }
+
+            applyFilters();
+        }
+
+        // ─── Card Chips ──────────────────────────────
+        function renderCardChips(cards) {
+            const container = document.getElementById('cardChips');
+            container.innerHTML = cards.map(card => `
+                <button class="card-chip ${activeCardFilter === card ? 'active' : ''}" 
+                        onclick="toggleCardFilter('${card}')">
+                    ${card}
+                </button>
+            `).join('');
+        }
+
+        function toggleCardFilter(card) {
+            activeCardFilter = activeCardFilter === card ? null : card;
+            loadCardChips();
+            applyFilters();
+        }
+
+        // ─── Period Filter (Olist style) ────────────
+        let activePeriod = 'none';
+        let navDate = new Date();
+
+        function togglePeriodPopover() {
+            const popover = document.getElementById('periodPopover');
+            popover.classList.toggle('active');
+        }
+
+        function selectPeriod(period) {
+            activePeriod = period;
+
+            // Update active chip
+            document.querySelectorAll('.period-chip').forEach(c => {
+                c.classList.toggle('active', c.dataset.period === period);
+            });
+
+            // Show/hide date nav row
+            const navRow = document.getElementById('dateNavRow');
+            const intervalFields = document.getElementById('intervalFields');
+
+            if (['day', 'week', 'month'].includes(period)) {
+                navDate = new Date();
+                navRow.classList.add('visible');
+                intervalFields.classList.remove('visible');
+                updateDateNavLabel();
+            } else if (period === 'interval') {
+                navRow.classList.remove('visible');
+                intervalFields.classList.add('visible');
+                // Default: last 7 days
+                const today = new Date();
+                const weekAgo = new Date(today);
+                weekAgo.setDate(weekAgo.getDate() - 7);
+                document.getElementById('dateFrom').value = formatISODate(weekAgo);
+                document.getElementById('dateTo').value = formatISODate(today);
+            } else {
+                navRow.classList.remove('visible');
+                intervalFields.classList.remove('visible');
+            }
+        }
+
+        function navigateDate(direction) {
+            if (activePeriod === 'day') {
+                navDate.setDate(navDate.getDate() + direction);
+            } else if (activePeriod === 'week') {
+                navDate.setDate(navDate.getDate() + (direction * 7));
+            } else if (activePeriod === 'month') {
+                navDate.setMonth(navDate.getMonth() + direction);
+            }
+            updateDateNavLabel();
+        }
+
+        function updateDateNavLabel() {
+            const label = document.getElementById('dateNavLabel');
+            if (activePeriod === 'day') {
+                label.textContent = formatDateBR(navDate);
+            } else if (activePeriod === 'week') {
+                const start = new Date(navDate);
+                start.setDate(start.getDate() - start.getDay());
+                const end = new Date(start);
+                end.setDate(end.getDate() + 6);
+                label.textContent = `${formatDateBR(start)} — ${formatDateBR(end)}`;
+            } else if (activePeriod === 'month') {
+                const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+                label.textContent = `${months[navDate.getMonth()]} ${navDate.getFullYear()}`;
+            }
+        }
+
+        function applyPeriodFilter() {
+            const now = new Date();
+
+            if (activePeriod === 'none') {
+                dateFromFilter = null;
+                dateToFilter = null;
+            } else if (activePeriod === '30d') {
+                const d = new Date(now);
+                d.setDate(d.getDate() - 30);
+                dateFromFilter = formatISODate(d);
+                dateToFilter = null;
+            } else if (activePeriod === 'day') {
+                dateFromFilter = formatISODate(navDate);
+                dateToFilter = formatISODate(navDate);
+            } else if (activePeriod === 'week') {
+                const start = new Date(navDate);
+                start.setDate(start.getDate() - start.getDay());
+                const end = new Date(start);
+                end.setDate(end.getDate() + 6);
+                dateFromFilter = formatISODate(start);
+                dateToFilter = formatISODate(end);
+            } else if (activePeriod === 'month') {
+                const start = new Date(navDate.getFullYear(), navDate.getMonth(), 1);
+                const end = new Date(navDate.getFullYear(), navDate.getMonth() + 1, 0);
+                dateFromFilter = formatISODate(start);
+                dateToFilter = formatISODate(end);
+            } else if (activePeriod === 'interval') {
+                dateFromFilter = document.getElementById('dateFrom').value || null;
+                dateToFilter = document.getElementById('dateTo').value || null;
+            }
+
+            // Update chip label
+            const btn = document.getElementById('btnPeriod');
+            if (activePeriod === 'none') {
+                btn.innerHTML = '<span class="chip-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> por periodo';
+                btn.classList.remove('active');
+            } else {
+                const periodLabels = { '30d': 'ultimos 30 dias', 'day': 'do dia', 'week': 'da semana', 'month': 'do mes', 'interval': 'intervalo' };
+                const label = periodLabels[activePeriod] || 'por periodo';
+                btn.innerHTML = `<span class="chip-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span> ${label}`;
+                btn.classList.add('active');
+            }
+
+            document.getElementById('periodPopover').classList.remove('active');
+            applyFilters();
+        }
+
+        function cancelPeriodFilter() {
+            document.getElementById('periodPopover').classList.remove('active');
+        }
+
+        // Close popover on outside click
+        document.addEventListener('click', (e) => {
+            const popover = document.getElementById('periodPopover');
+            const btn = document.getElementById('btnPeriod');
+            if (popover && !popover.contains(e.target) && !btn.contains(e.target)) {
+                popover.classList.remove('active');
+            }
+        });
+
+        // ─── Table Render ─────────────────────────────
+        function renderTable() {
+            const tbody = document.getElementById('tableBody');
+
+            if (filteredStatements.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="padding: 0; border: none;">
+                            <div class="empty-state">
+                                <div class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div>
+                                <h3>Nenhum extrato encontrado</h3>
+                                <p>Importe um extrato de cartao usando o botao acima</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                document.getElementById('pagination').classList.add('hidden');
+                return;
+            }
+
+            // Paginate
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const page = filteredStatements.slice(start, start + PAGE_SIZE);
+
+            tbody.innerHTML = page.map(s => {
+                const date = formatDate(s.statement_date);
+                const ratio = `(${s.categorized_count || 0}/${s.total_transactions})`;
+                const checked = selectedIds.has(s.id) ? 'checked' : '';
+
+                return `
+                    <tr class="clickable" data-id="${s.id}">
+                        <td class="td-check" onclick="event.stopPropagation()">
+                            <input type="checkbox" ${checked} onchange="toggleSelect(${s.id}, this.checked)">
+                        </td>
+                        <td>${date}</td>
+                        <td>${escapeHtml(s.filename)}</td>
+                        <td>${escapeHtml(s.financial_account || '—')}</td>
+                        <td>${ratio}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Click handler for rows
+            tbody.querySelectorAll('tr.clickable').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    const id = tr.dataset.id;
+                    window.location.href = `/extrato-detalhe.html?id=${id}`;
+                });
+            });
+
+            renderPagination();
+        }
+
+        // ─── Pagination ──────────────────────────────
+        function renderPagination() {
+            const total = filteredStatements.length;
+            const totalPages = Math.ceil(total / PAGE_SIZE);
+            const pag = document.getElementById('pagination');
+
+            if (totalPages <= 1) {
+                pag.classList.add('hidden');
+                return;
+            }
+
+            pag.classList.remove('hidden');
+            document.getElementById('paginationInfo').textContent =
+                `${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, total)} de ${total}`;
+
+            let html = '';
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<button class="${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+            }
+            document.getElementById('paginationPages').innerHTML = html;
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            renderTable();
+        }
+
+        // ─── Selection ───────────────────────────────
+        function toggleSelect(id, checked) {
+            if (checked) selectedIds.add(id);
+            else selectedIds.delete(id);
+            updateSelectionBar();
+        }
+
+        function toggleSelectAll() {
+            const checkAll = document.getElementById('selectAll');
+            const start = (currentPage - 1) * PAGE_SIZE;
+            const pageItems = filteredStatements.slice(start, start + PAGE_SIZE);
+
+            if (checkAll.checked) {
+                pageItems.forEach(s => selectedIds.add(s.id));
+            } else {
+                pageItems.forEach(s => selectedIds.delete(s.id));
+            }
+            renderTable();
+            updateSelectionBar();
+        }
+
+        function updateSelectionBar() {
+            const bar = document.getElementById('selectionBar');
+            const count = selectedIds.size;
+            if (count > 0) {
+                bar.classList.add('visible');
+                document.getElementById('selCount').innerHTML = `<strong>${count}</strong> selecionado${count > 1 ? 's' : ''}`;
+            } else {
+                bar.classList.remove('visible');
+            }
+        }
+
+        function clearSelection() {
+            selectedIds.clear();
+            renderTable();
+            updateSelectionBar();
+            document.getElementById('selectAll').checked = false;
+        }
+
+        function deleteSelected() {
+            if (selectedIds.size === 0) return;
+            deleteTargetId = '__batch__';
+            document.getElementById('deleteFilename').textContent = `${selectedIds.size} extrato${selectedIds.size > 1 ? 's' : ''} selecionado${selectedIds.size > 1 ? 's' : ''}`;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        // ─── Upload Modal ─────────────────────────────
+        function openUploadModal() {
+            document.getElementById('uploadModal').classList.add('active');
+            document.getElementById('uploadResult').classList.add('hidden');
+            document.getElementById('uploadResult').innerHTML = '';
+            resetDropZone();
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+        }
+
+        function resetDropZone() {
+            const dz = document.getElementById('dropZone');
+            dz.classList.remove('processing');
+            dz.innerHTML = `
+                <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+                <h3>Arraste o PDF da fatura aqui</h3>
+                <p>ou clique para selecionar um arquivo</p>
+                <input type="file" id="fileInput" accept=".pdf">
+            `;
+            setupDropZone();
+        }
+
+        function setupDropZone() {
+            const dz = document.getElementById('dropZone');
+            if (!dz) return;
+
+            // Guard: só adiciona listeners de click/drag UMA vez no container
+            if (!dz._listenersSet) {
+                dz._listenersSet = true;
+
+                dz.addEventListener('click', (e) => {
+                    // Evita abrir o diálogo se já está processando
+                    if (dz.classList.contains('processing')) return;
+                    const fi = document.getElementById('fileInput');
+                    if (fi) fi.click();
+                });
+
+                dz.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dz.classList.add('dragover');
+                });
+
+                dz.addEventListener('dragleave', () => {
+                    dz.classList.remove('dragover');
+                });
+
+                dz.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dz.classList.remove('dragover');
+                    if (e.dataTransfer.files.length > 0) {
+                        uploadFile(e.dataTransfer.files[0]);
+                    }
+                });
+
+                // Event delegation: captura change de qualquer input dentro do dz
+                dz.addEventListener('change', (e) => {
+                    if (e.target.matches('#fileInput') && e.target.files.length > 0) {
+                        uploadFile(e.target.files[0]);
+                    }
+                });
+            }
+        }
+
+        async function uploadFile(file) {
+            if (!file.name.toLowerCase().endsWith('.pdf')) {
+                showToast('Apenas arquivos PDF são aceitos', 'error');
+                return;
+            }
+
+            const dz = document.getElementById('dropZone');
+            dz.classList.add('processing');
+            dz.innerHTML = `
+                <div class="spinner"></div>
+                <h3 style="margin-top: 12px;">Processando...</h3>
+                <p>${file.name}</p>
+            `;
+
+            const formData = new FormData();
+            formData.append('pdf', file);
+
+            try {
+                const res = await fetch('/api/card-statements/upload', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.erro || 'Erro no upload');
+                }
+
+                // Show result
+                dz.innerHTML = `
+                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
+                    <h3>Extrato importado com sucesso</h3>
+                    <p>${file.name}</p>
+                `;
+
+                const resultDiv = document.getElementById('uploadResult');
+                resultDiv.classList.remove('hidden');
+                resultDiv.innerHTML = `
+                    <div class="upload-result">
+                        <div class="result-row">
+                            <span class="label">Cartão</span>
+                            <span class="value">${escapeHtml(data.card_name)}</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="label">Conta financeira</span>
+                            <span class="value">${escapeHtml(data.financial_account || '—')}</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="label">Transações</span>
+                            <span class="value">${data.total_transactions}</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="label">Valor total</span>
+                            <span class="value">R$ ${data.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                        <div class="result-row">
+                            <span class="label">Classificados</span>
+                            <span class="value" style="color: var(--green);">${data.resumo.percentualClassificado}%</span>
+                        </div>
+                    </div>
+                `;
+
+                showToast(`${data.total_transactions} transacoes importadas`);
+                loadStatements();
+                loadCardChips();
+
+            } catch (e) {
+                dz.innerHTML = `
+                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+                    <h3>Erro ao processar</h3>
+                    <p>${escapeHtml(e.message)}</p>
+                `;
+                showToast(e.message, 'error');
+            }
+        }
+
+        // ─── Delete ───────────────────────────────────
+        function openDeleteModal(id, filename) {
+            deleteTargetId = id;
+            document.getElementById('deleteFilename').textContent = filename;
+            document.getElementById('deleteModal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            deleteTargetId = null;
+            document.getElementById('deleteModal').classList.remove('active');
+        }
+
+        async function confirmDelete() {
+            if (!deleteTargetId) return;
+
+            try {
+                if (deleteTargetId === '__batch__') {
+                    // Batch delete
+                    const ids = [...selectedIds];
+                    let deleted = 0;
+                    for (const id of ids) {
+                        const res = await fetch(`/api/card-statements/${id}`, { method: 'DELETE' });
+                        if (res.ok) deleted++;
+                    }
+                    selectedIds.clear();
+                    updateSelectionBar();
+                    document.getElementById('selectAll').checked = false;
+                    showToast(`${deleted} extrato${deleted > 1 ? 's' : ''} excluído${deleted > 1 ? 's' : ''}`);
+                } else {
+                    // Single delete
+                    const res = await fetch(`/api/card-statements/${deleteTargetId}`, { method: 'DELETE' });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.erro);
+                    showToast('Extrato excluído');
+                }
+
+                closeDeleteModal();
+                loadStatements();
+            } catch (e) {
+                showToast(e.message, 'error');
+            }
+        }
+
+        // ─── Helpers ──────────────────────────────────
+        function formatDate(dateStr) {
+            if (!dateStr) return '—';
+            const parts = dateStr.split('-');
+            if (parts.length === 3) {
+                return `${parts[2]}/${parts[1]}/${parts[0]}`;
+            }
+            // Try DD/MM/YYYY already
+            return dateStr;
+        }
+
+        function formatISODate(d) {
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function formatDateBR(d) {
+            const day = String(d.getDate()).padStart(2, '0');
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const year = d.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => toast.classList.add('show'));
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+
+    </script>
+</body>
+
+</html>

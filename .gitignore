@@ -1,0 +1,14 @@
+node_modules/
+.env
+.DS_Store
+.tmp/
+
+# Dados sensíveis
+data/*.db
+data/*.db-wal
+data/*.db-shm
+uploads/
+dados-financeiros/
+
+# Documento de avaliação (gerado)
+Avaliacao-Tecnica-*.docx

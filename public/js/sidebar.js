@@ -65,11 +65,8 @@
         return `
         <aside class="erp-sidebar" id="sidebar">
             <div class="sidebar-brand">
-                <div class="logo">C</div>
-                <div>
-                    <div class="brand-text">Calisul</div>
-                    <div class="brand-sub">Central Financeira</div>
-                </div>
+                <img src="/img/logo-calisul.svg" alt="Calisul" class="sidebar-logo">
+                <div class="brand-sub">Central Financeira</div>
             </div>
             <nav class="sidebar-nav">
                 ${groupsHTML}

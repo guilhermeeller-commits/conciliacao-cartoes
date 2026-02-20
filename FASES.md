@@ -1,6 +1,6 @@
 # 🚀 Central Financeira Calisul — Roadmap de Fases
 
-> Estado atual: **Fase 3 concluída** (20/02/2026). Próximo passo: **Fase 4**.
+> Estado atual: **Todas as 5 fases concluídas** ✅ (20/02/2026). Sistema completo e operacional.
 
 ---
 
@@ -15,8 +15,6 @@ Reestruturação completa da navegação e eliminação de duplicações.
 | 3 | **Auto-categorização** | Botão "Categorizar automaticamente" no detalhe da fatura |
 | 4 | **Envio individual ao Olist** | Botão "Enviar ao Olist" no detalhe (SSE com progresso) |
 | 5 | **Sidebar reestruturada** | 4 menus lógicos: Dashboard, Faturas, Repositório, Configurações |
-
-**Redirects**: `extratos-cartao.html` e `conciliacoes.html` redirecionam para `faturas.html`.
 
 ---
 
@@ -45,37 +43,37 @@ Configurações centralizadas, exportação de dados e limpeza técnica.
 | 13 | **Limpeza de legados** | Removidas referências mortas (`filtro-universal.js`, `categorizacao.html`) |
 | 14 | **Refatoração CSS** | Inline `style=` migrados para classes CSS em `faturas.html` e `extrato-detalhe.html` |
 
-### Arquivos de Configurações criados
+### Arquivos criados
 
 - **Backend**: `src/modules/settings/settings.routes.js` (5 endpoints REST)
 - **Frontend**: `public/configuracoes.html` (CRUD completo, 4 abas)
 
 ---
 
-## ⬜ Fase 4 — Polimento (PRÓXIMA)
+## ✅ Fase 4 — Polimento (CONCLUÍDA)
 
-Foco em eliminar páginas legadas restantes, melhorar UX e adicionar funcionalidades avançadas.
+Eliminação de páginas legadas, melhorias de UX e funcionalidades avançadas.
 
-| # | Proposta | Impacto |
+| # | Entrega | Detalhe |
 |---|---|---|
-| 15 | **Eliminar `conciliacao.html`** | 2.598 linhas de código legado — funcionalidades já integradas no detalhe |
-| 16 | **Eliminar `categorizacao.html`** | Funcionalidades migradas: stats → Dashboard, mapeamentos → Configurações |
-| 17 | **Eliminar `extratos-cartao.html` e `conciliacoes.html`** | Já redirecionam, podem ser removidas fisicamente |
-| 18 | **Gráficos no Repositório** | Transformar Top Categorias/Fornecedores em donut charts |
-| 19 | **Sub-tabs no Repositório** | Dados Sincronizados / Categorias & Mapeamentos / Importações |
-| 20 | **Plano de Contas na Configurações** | Visualização em árvore do plano de contas Olist |
-| 21 | **Backup do banco** | Botão para download/restauração do SQLite em Configurações |
+| 15 | **Eliminar `conciliacao.html`** | ✅ 2.598 linhas de código legado removidas |
+| 16 | **Eliminar `categorizacao.html`** | ✅ Funcionalidades migradas para Dashboard e Configurações |
+| 17 | **Eliminar `extratos-cartao.html` e `conciliacoes.html`** | ✅ Arquivos de redirect removidos |
+| 18 | **Gráficos no Repositório** | ✅ Donut charts Chart.js para Top Categorias e Top Fornecedores |
+| 19 | **Sub-tabs no Repositório** | ✅ 3 sub-tabs: Dados Sincronizados / Categorias & Mapeamentos / Importações |
+| 20 | **Plano de Contas na Configurações** | ✅ Visualização em árvore com busca, aba dedicada |
+| 21 | **Backup do banco** | ✅ Download/restauração do SQLite em Configurações, aba dedicada |
 
 ---
 
-## ⬜ Fase 5 — Automação (FUTURA)
+## ✅ Fase 5 — Automação (CONCLUÍDA)
 
-| # | Proposta | Impacto |
+| # | Entrega | Detalhe |
 |---|---|---|
-| 22 | **Sync automático Olist** | Sincronização a cada 6h (cron job) |
-| 23 | **Token Olist via UI** | Atualizar `TINY_API_TOKEN` pela interface sem editar `.env` |
-| 24 | **Notificações push** | Avisos quando sync completar ou falhar |
-| 25 | **Relatórios PDF** | Exportação de relatórios formatados para contabilidade |
+| 22 | **Sync automático Olist** | ✅ Cron job a cada 6h via `sync-scheduler.js` com `node-cron` |
+| 23 | **Token Olist via UI** | ✅ Aba API Olist em Configurações com input, validação e salvamento |
+| 24 | **Notificações push** | ✅ Sistema de polling via `notifications.js` com painel e toasts |
+| 25 | **Relatórios PDF** | ✅ Aba Relatórios em Configurações com geração via PDFKit (`reports.routes.js`) |
 
 ---
 

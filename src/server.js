@@ -2,6 +2,10 @@ require('dotenv').config();
 
 const express = require('express');
 const path = require('path');
+const session = require('express-session');
+const SQLiteStore = require('connect-sqlite3')(session);
+const passport = require('./config/passport');
+const { allowPublicAssets } = require('./middlewares/auth.middleware');
 
 // ─── Database ─────────────────────────────────
 const { runMigrations } = require('./database/migrations');
@@ -12,13 +16,71 @@ const { startScheduler } = require('./services/sync-scheduler');
 startScheduler();
 
 const app = express();
+
+// Railway/Render usam um proxy reverso (essencial para cookies seguros funcionarem)
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Session Configuration — armazena sessões no SQLite para sobreviver a reinicializações
+// connect-sqlite3 espera `db` (só o nome do arquivo) e `dir` (o diretório onde salvar)
+const sessionsDir = process.env.DB_PATH
+    ? path.dirname(process.env.DB_PATH)
+    : path.join(__dirname, '..', 'data');
+
+app.use(session({
+    store: new SQLiteStore({ db: 'sessions.db', dir: sessionsDir, concurrentDB: true }),
+    secret: process.env.SESSION_SECRET || 'calisul-financeira-secret-key-12345',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: process.env.NODE_ENV === 'production',
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60 * 1000 // 30 dias
+    }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Redirects from old/legacy pages (MUST be before static middleware)
 app.get('/extratos-cartao.html', (req, res) => res.redirect(301, '/faturas.html'));
 app.get('/conciliacoes.html', (req, res) => res.redirect(301, '/faturas.html'));
 app.get('/conciliacao.html', (req, res) => res.redirect(301, '/'));
+
+// --- Authentication Routes ---
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login.html?error=unauthorized' }),
+    function (req, res) {
+        // Successful authentication, redirect to dashboard.
+        res.redirect('/');
+    }
+);
+
+app.get('/logout', (req, res) => {
+    req.logout(function (err) {
+        if (err) { return next(err); }
+        res.redirect('/login.html');
+    });
+});
+
+app.get('/api/auth/me', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.json({ user: req.user });
+    } else {
+        res.status(401).json({ error: 'Não autenticado' });
+    }
+});
+
+// Protect all routes below this middleware
+app.use(allowPublicAssets);
 
 // Static files
 app.use(express.static(path.join(__dirname, '..', 'public')));

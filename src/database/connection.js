@@ -3,7 +3,9 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
 
-const DB_PATH = path.join(__dirname, '../../data/calisul-financeiro.db');
+// Usa a variável de ambiente DB_PATH se existir (para volumes no Railway/Render),
+// caso contrário, salva na pasta local 'data/calisul-financeiro.db'
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/calisul-financeiro.db');
 
 // Ensure data directory exists
 const dataDir = path.dirname(DB_PATH);

@@ -57,6 +57,17 @@ async function parsePdfFatura(input) {
         if (t.data) {
             t.data = convertDateToISO(t.data);
         }
+        // Extract installment from description if not already set
+        // Patterns: "04 DE 12", "04/12", "PARC 04/12", "PARCELA 04 DE 12"
+        if (!t.parcela) {
+            const mDE = t.descricao.match(/(\d{2})\s+DE\s+(\d{2,3})/i);
+            const mSlash = t.descricao.match(/(?:PARC(?:ELA)?\.?\s+)?(\d{1,2})\/(\d{1,2})(?!\d)/i);
+            if (mDE) {
+                t.parcela = `${parseInt(mDE[1])}/${parseInt(mDE[2])}`;
+            } else if (mSlash && parseInt(mSlash[1]) <= parseInt(mSlash[2])) {
+                t.parcela = `${parseInt(mSlash[1])}/${parseInt(mSlash[2])}`;
+            }
+        }
     }
 
     logger.info(`✅ ${transacoes.length} transações extraídas`);

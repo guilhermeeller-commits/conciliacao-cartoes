@@ -31,12 +31,12 @@
         "3.9.1. Passagem/Hospedagem",
         "3.9.2. Alimentação",
         "3.9.3. Combustível/Locomocação",
-        "4.1.1. Aluguel",
-        "4.1.2. IPTU",
-        "4.1.4. Seguros",
-        "4.2.1. Água/Saneamento",
-        "4.2.2. Energia",
-        "4.2.3. Internet/Telefonia",
+        "4.1.1.1. Aluguel - Matriz",
+        "4.1.2.1. IPTU - Matriz",
+        "4.1.3. Seguro imóvel - Matriz",
+        "4.2.1. Água e Lixo",
+        "4.2.2. Energia Elétrica",
+        "4.2.3. Internet e Telefonia Fixa",
         "4.3.01. Sistema ERP - Olist",
         "4.3.03. Google Workspace",
         "4.3.04. ChatGPT - IA",
@@ -45,17 +45,17 @@
         "4.3.10. Reclame Aqui",
         "4.3.3. Outros Softwares e Sistemas",
         "4.3.13. Nuvemshop - Site Próprio Mensalidade",
-        "4.4.1. Contabilidade",
+        "4.4.1. Serviços Contábeis",
         "4.4.8. Serviços Cartorários Gerais",
         "4.6.1. Copa e Cozinha",
-        "4.6.2. Higiene e Limpeza",
+        "4.6.2. Materiais de Higiene e Limpeza",
         "4.6.3. Mercado em Geral",
         "4.6.4. Peças de Manutenção/Reparos",
         "5.6.3. Uniformes e EPIs",
         "7.1.1. Manutenção de conta",
         "7.2.1. Juros e multa de atrasos",
-        "8.2.1. Compra de Equip. Produção",
-        "8.2.2. Compra de Equip. Administrativo",
+        "8.2.1. Aquisição de Equipamentos Produção",
+        "8.2.2.Aquisição de Equipamentos Administrativos",
         "8.2.4. Benfeitoria Imóvel de Terceiros",
         "8.5.1. Pagamento Cartão Caixa",
         "8.5.2. Pagamento Cartão Santander",
@@ -141,7 +141,7 @@
         },
         {
             "padrao": "MERCADOLIVRE\\*AUTOMACAO|MERCADOLIVRE\\*TECFAG",
-            "categoria": "8.2.2. Compra de Equip. Administrativo"
+            "categoria": "8.2.2.Aquisição de Equipamentos Administrativos"
         },
         {
             "padrao": "MERCADOLIVRE|MERCADOPAGO|MP\\*|EC \\*",
@@ -165,7 +165,7 @@
         },
         {
             "padrao": "PLASNOX",
-            "categoria": "8.2.1. Compra de Equip. Produção"
+            "categoria": "8.2.1. Aquisição de Equipamentos Produção"
         },
         {
             "padrao": "AJUSTE CREDITO|ESTORNO",
@@ -181,7 +181,7 @@
         },
         {
             "padrao": "VINDI|YUZER|CONDOMINIO",
-            "categoria": "4.1.1. Aluguel"
+            "categoria": "4.1.1.1. Aluguel - Matriz"
         }
     ]
 }

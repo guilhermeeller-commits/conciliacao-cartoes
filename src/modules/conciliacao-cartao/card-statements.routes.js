@@ -467,7 +467,7 @@ router.post('/:id/send-to-olist', async (req, res) => {
                 data_emissao: dataEmissao,
                 competencia,
                 fornecedor,
-                forma_pagamento: 'credito',
+                forma_pagamento: 'Cartão de Crédito',
             });
 
             if (resultado.sucesso) {
@@ -570,7 +570,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
                 data_emissao: dataEmissao,
                 competencia,
                 fornecedor,
-                forma_pagamento: 'credito',
+                forma_pagamento: 'Cartão de Crédito',
             });
 
             if (resultado.sucesso) {

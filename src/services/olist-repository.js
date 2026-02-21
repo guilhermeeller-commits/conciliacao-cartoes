@@ -80,7 +80,10 @@ async function fetchAllPages(endpoint, extraParams = {}, onProgress = null, onBa
         } else {
             const erros = resposta.retorno?.erros || [];
             const msgErro = Array.isArray(erros)
-                ? erros.map(e => e.erro || e).join('; ')
+                ? erros.map(e => {
+                    const val = e.erro || e;
+                    return typeof val === 'object' ? JSON.stringify(val) : val;
+                }).join('; ')
                 : JSON.stringify(erros);
 
             // "No records" is not really an error

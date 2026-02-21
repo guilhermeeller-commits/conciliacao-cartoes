@@ -903,6 +903,11 @@
                 const overall = ((data.entityIndex + entityProgress) / totalEntities) * 100;
                 progressBar.style.width = `${overall}%`;
                 statusEl.innerHTML = `<span class="entity-name">${data.entity}</span> — Pág. ${data.page}/${data.totalPages} (${data.totalRecords} registros)`;
+                // Refresh stats every 5 pages to show progressive data
+                if (data.page % 5 === 0) {
+                    loadStats();
+                    loadData();
+                }
             });
 
             es.addEventListener('entity_done', (e) => {

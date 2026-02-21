@@ -8,26 +8,14 @@ const fs = require('fs');
 const path = require('path');
 const { getDb } = require('../../database/connection');
 const logger = require('../../utils/logger');
-
-const CARD_RULES_PATH = path.join(__dirname, '..', '..', '..', 'config', 'card-rules.json');
-
-// ─── Helpers ──────────────────────────────────
-
-function readCardRules() {
-    const raw = fs.readFileSync(CARD_RULES_PATH, 'utf-8');
-    return JSON.parse(raw);
-}
-
-function writeCardRules(data) {
-    fs.writeFileSync(CARD_RULES_PATH, JSON.stringify(data, null, 4), 'utf-8');
-}
+const cardRulesRepo = require('../../repositories/card-rules-repo');
 
 // ─── Card Rules (cartões → conta financeira) ──
 
 router.get('/card-rules', (req, res) => {
     try {
-        const rules = readCardRules();
-        res.json({ cartoes: rules.cartoes || {} });
+        const cartoes = cardRulesRepo.getCardAccounts();
+        res.json({ cartoes });
     } catch (e) {
         logger.error('Erro ao ler card-rules:', e);
         res.status(500).json({ erro: 'Erro ao ler configurações de cartões' });
@@ -36,9 +24,7 @@ router.get('/card-rules', (req, res) => {
 
 router.put('/card-rules', (req, res) => {
     try {
-        const rules = readCardRules();
-        rules.cartoes = req.body.cartoes || rules.cartoes;
-        writeCardRules(rules);
+        cardRulesRepo.saveCardAccounts(req.body.cartoes || {});
         res.json({ ok: true, message: 'Configurações de cartões salvas' });
     } catch (e) {
         logger.error('Erro ao salvar card-rules:', e);
@@ -50,11 +36,12 @@ router.put('/card-rules', (req, res) => {
 
 router.get('/classification-rules', (req, res) => {
     try {
-        const rules = readCardRules();
-        res.json({
-            regras: rules.regras_classificacao || [],
-            categorias: rules.categorias || [],
-        });
+        const regras = cardRulesRepo.getClassificationRules().map(r => ({
+            padrao: r.padrao,
+            categoria: r.categoria,
+        }));
+        const categorias = cardRulesRepo.getCategories();
+        res.json({ regras, categorias });
     } catch (e) {
         logger.error('Erro ao ler regras:', e);
         res.status(500).json({ erro: 'Erro ao ler regras de classificação' });
@@ -63,10 +50,8 @@ router.get('/classification-rules', (req, res) => {
 
 router.put('/classification-rules', (req, res) => {
     try {
-        const rules = readCardRules();
-        if (req.body.regras) rules.regras_classificacao = req.body.regras;
-        if (req.body.categorias) rules.categorias = req.body.categorias;
-        writeCardRules(rules);
+        if (req.body.regras) cardRulesRepo.saveClassificationRules(req.body.regras);
+        if (req.body.categorias) cardRulesRepo.saveCategories(req.body.categorias);
         res.json({ ok: true, message: 'Regras de classificação salvas' });
     } catch (e) {
         logger.error('Erro ao salvar regras:', e);

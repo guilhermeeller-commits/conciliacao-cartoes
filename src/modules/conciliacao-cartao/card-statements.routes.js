@@ -11,6 +11,7 @@ const router = express.Router();
 const { parsePdfFatura } = require('../../services/pdf-parser');
 const { classificarItens, gerarResumo } = require('../../services/expense-classifier');
 const { incluirContaPagar } = require('../../services/olist-financial');
+const { classificarComIA } = require('../../services/gemini-classifier');
 const logger = require('../../utils/logger');
 const repo = require('../../repositories/card-statements-repo');
 
@@ -319,6 +320,71 @@ router.post('/:id/auto-classify', (req, res) => {
         });
     } catch (error) {
         logger.error(`❌ Erro na auto-classificação: ${error.message}`);
+        res.status(500).json({ erro: error.message });
+    }
+});
+
+/**
+ * POST /api/card-statements/:id/ai-classify
+ * Classify unclassified transactions using Gemini AI
+ */
+router.post('/:id/ai-classify', async (req, res) => {
+    try {
+        const statement = repo.getStatementById(req.params.id);
+        if (!statement) {
+            return res.status(404).json({ erro: 'Fatura não encontrada' });
+        }
+
+        const transactions = repo.getTransactions(statement.id);
+
+        // Filter unclassified transactions
+        const unclassified = transactions.filter(t =>
+            !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO')
+        );
+
+        if (unclassified.length === 0) {
+            return res.json({ classified: 0, message: 'Todas as transações já estão categorizadas' });
+        }
+
+        // Send to Gemini
+        const itens = unclassified.map(t => ({
+            descricao: t.description,
+            valor: t.amount || 0,
+        }));
+
+        const results = await classificarComIA(itens);
+
+        // Update transactions with AI results (confidence >= 70%)
+        let updatedCount = 0;
+        for (let i = 0; i < results.length; i++) {
+            const result = results[i];
+            if (result.categoria && result.confianca >= 70) {
+                repo.updateTransactionCategory(
+                    unclassified[i].id,
+                    result.categoria,
+                    result.confianca >= 85 ? 'alta' : 'media'
+                );
+                updatedCount++;
+            }
+        }
+
+        // Update statement counts
+        repo.updateStatementCounts(statement.id);
+
+        logger.info(`🤖 AI classificou ${updatedCount}/${unclassified.length} transações na fatura ${statement.id}`);
+
+        res.json({
+            classified: updatedCount,
+            total_unclassified: unclassified.length,
+            results: results.map((r, i) => ({
+                description: unclassified[i].description,
+                categoria: r.categoria,
+                confianca: r.confianca,
+            })),
+            message: `🤖 ${updatedCount} transações classificadas pela IA`,
+        });
+    } catch (error) {
+        logger.error(`❌ Erro na classificação IA: ${error.message}`);
         res.status(500).json({ erro: error.message });
     }
 });

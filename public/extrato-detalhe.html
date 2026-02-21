@@ -100,6 +100,11 @@
             background: rgba(248, 81, 73, 0.2);
         }
 
+        .cat-ia {
+            background: rgba(163, 113, 247, 0.12);
+            color: var(--purple, #a371f7);
+        }
+
         /* Amount column alignment */
         .text-right {
             text-align: right;
@@ -212,6 +217,16 @@
 
         .action-btn.btn-action-blue:hover {
             background: rgba(56, 139, 253, 0.16);
+        }
+
+        .action-btn.btn-action-purple {
+            border-color: var(--purple, #a371f7);
+            color: var(--purple, #a371f7);
+            background: rgba(163, 113, 247, 0.08);
+        }
+
+        .action-btn.btn-action-purple:hover {
+            background: rgba(163, 113, 247, 0.16);
         }
 
         .action-btn:disabled {
@@ -449,6 +464,13 @@
                         <h1 id="pageTitle" class="page-title-detail">Carregando...</h1>
                     </div>
                     <div class="page-header-actions">
+                        <button class="action-btn btn-action-purple" id="btnAiClassify" onclick="aiClassify()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l2 7h7l-5.5 4 2 7L12 16l-5.5 4 2-7L3 9h7z" />
+                            </svg>
+                            🤖 Classificar com IA
+                        </button>
                         <button class="action-btn btn-action-green" id="btnAutoClassify" onclick="autoClassify()">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                 stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -964,6 +986,30 @@
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4" /><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" /></svg> Categorizar Automaticamente';
+            }
+        }
+
+        // ─── AI-Classify ──────────────────────────────
+        async function aiClassify() {
+            const btn = document.getElementById('btnAiClassify');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;"></span> 🤖 Classificando com IA...';
+
+            try {
+                const res = await fetch(`/api/card-statements/${statementId}/ai-classify`, {
+                    method: 'POST',
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.erro || 'Erro na classificação IA');
+
+                showToast(`🤖 ${data.classified || 0} transações classificadas pela IA`);
+                loadStatement();
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2 7h7l-5.5 4 2-7L12 16l-5.5 4 2-7L3 9h7z" /></svg> 🤖 Classificar com IA';
             }
         }
 

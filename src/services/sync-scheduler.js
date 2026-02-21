@@ -1,6 +1,6 @@
 /**
  * Sync Scheduler — Automated Olist repository synchronization
- * 
+ *
  * Runs a cron job every 6 hours to sync data from Olist/Tiny ERP.
  * Can be toggled on/off via API.
  */
@@ -12,7 +12,7 @@ const {
     importContatos,
     importNotasEntrada,
 } = require('./olist-repository');
-const { getDb } = require('../database/connection');
+const { query } = require('../database/connection');
 const logger = require('../utils/logger');
 
 let schedulerTask = null;
@@ -86,16 +86,15 @@ async function runSync() {
 
     // Save notification
     try {
-        const db = getDb();
         const title = hasErrors
             ? '⚠️ Sync parcial concluído'
             : '✅ Sync automático concluído';
         const message = `${totalRecords} registros sincronizados em ${duration}s`;
 
-        db.prepare(`
-            INSERT INTO notifications (type, title, message)
-            VALUES (?, ?, ?)
-        `).run(hasErrors ? 'warning' : 'success', title, message);
+        await query(
+            'INSERT INTO notifications (type, title, message) VALUES ($1, $2, $3)',
+            [hasErrors ? 'warning' : 'success', title, message]
+        );
     } catch (e) {
         // Notifications table might not exist yet
         logger.warn('Notificação não salva:', e.message);

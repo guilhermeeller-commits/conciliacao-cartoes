@@ -22,9 +22,9 @@ const logger = require('../../utils/logger');
  * GET /api/repository/stats
  * Returns counts, last sync info, and financial summaries.
  */
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
     try {
-        const stats = getStats();
+        const stats = await getStats();
         res.json({ sucesso: true, ...stats });
     } catch (error) {
         logger.error(`❌ Erro ao obter stats: ${error.message}`);
@@ -106,7 +106,7 @@ router.get('/sync', async (req, res) => {
     }
 
     // Final stats
-    const finalStats = getStats();
+    const finalStats = await getStats();
     sendEvent('complete', {
         message: 'Sincronização concluída!',
         results,
@@ -121,14 +121,14 @@ router.get('/sync', async (req, res) => {
  * Returns paginated data for a given entity.
  * Query params: page, limit, search
  */
-router.get('/data/:entity', (req, res) => {
+router.get('/data/:entity', async (req, res) => {
     try {
         const { entity } = req.params;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 50;
         const search = req.query.search || '';
 
-        const result = getData(entity, { page, limit, search });
+        const result = await getData(entity, { page, limit, search });
         res.json({ sucesso: true, ...result });
     } catch (error) {
         logger.error(`❌ Erro ao obter dados ${req.params.entity}: ${error.message}`);

@@ -1,5 +1,5 @@
 /**
- * Migration 010: Move card-rules.json data into SQLite tables.
+ * Migration 010: Move card-rules.json data into PostgreSQL tables.
  *
  * Creates three tables:
  *   - card_accounts       (card → financial account mapping)
@@ -14,12 +14,12 @@ const path = require('path');
 const CARD_RULES_PATH = path.join(__dirname, '../../../config/card-rules.json');
 
 module.exports = {
-    up(db) {
+    async up(client) {
         // ─── Create Tables ────────────────────────────
 
-        db.exec(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS card_accounts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 card_name TEXT NOT NULL UNIQUE,
                 conta_numero INTEGER,
                 conta_nome TEXT,
@@ -27,18 +27,18 @@ module.exports = {
             );
         `);
 
-        db.exec(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS classification_rules (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 padrao TEXT NOT NULL,
                 categoria TEXT NOT NULL,
                 ordem INTEGER NOT NULL DEFAULT 0
             );
         `);
 
-        db.exec(`
+        await client.query(`
             CREATE TABLE IF NOT EXISTS categories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id SERIAL PRIMARY KEY,
                 nome TEXT NOT NULL UNIQUE
             );
         `);
@@ -56,34 +56,35 @@ module.exports = {
 
         // Seed card_accounts
         if (data.cartoes) {
-            const insertCard = db.prepare(`
-                INSERT OR IGNORE INTO card_accounts (card_name, conta_numero, conta_nome, fornecedor)
-                VALUES (?, ?, ?, ?)
-            `);
             for (const [name, cfg] of Object.entries(data.cartoes)) {
-                insertCard.run(name, cfg.conta_numero || null, cfg.conta_nome || null, cfg.fornecedor || null);
+                await client.query(
+                    `INSERT INTO card_accounts (card_name, conta_numero, conta_nome, fornecedor)
+                     VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+                    [name, cfg.conta_numero || null, cfg.conta_nome || null, cfg.fornecedor || null]
+                );
             }
         }
 
         // Seed classification_rules
         if (data.regras_classificacao) {
-            const insertRule = db.prepare(`
-                INSERT INTO classification_rules (padrao, categoria, ordem)
-                VALUES (?, ?, ?)
-            `);
-            data.regras_classificacao.forEach((rule, idx) => {
-                insertRule.run(rule.padrao, rule.categoria, idx);
-            });
+            for (let idx = 0; idx < data.regras_classificacao.length; idx++) {
+                const rule = data.regras_classificacao[idx];
+                await client.query(
+                    `INSERT INTO classification_rules (padrao, categoria, ordem)
+                     VALUES ($1, $2, $3)`,
+                    [rule.padrao, rule.categoria, idx]
+                );
+            }
         }
 
         // Seed categories
         if (data.categorias) {
-            const insertCat = db.prepare(`
-                INSERT OR IGNORE INTO categories (nome) VALUES (?)
-            `);
-            data.categorias.forEach(cat => {
-                insertCat.run(cat);
-            });
+            for (const cat of data.categorias) {
+                await client.query(
+                    'INSERT INTO categories (nome) VALUES ($1) ON CONFLICT DO NOTHING',
+                    [cat]
+                );
+            }
         }
     },
 };

@@ -1,9 +1,9 @@
 /**
  * Olist Repository Service
- * 
- * Imports and caches Olist/Tiny ERP data locally in SQLite.
+ *
+ * Imports and caches Olist/Tiny ERP data locally in PostgreSQL.
  * Purpose: Build training dataset for AI expense categorization.
- * 
+ *
  * Entities:
  *   - Contas a Pagar   (contas.pagar.pesquisa.php)
  *   - Contas a Receber  (contas.receber.pesquisa.php)
@@ -12,7 +12,7 @@
  */
 
 const axios = require('axios');
-const { getDb } = require('../database/connection');
+const { query, getClient } = require('../database/connection');
 const logger = require('../utils/logger');
 
 const TINY_API_BASE = 'https://api.tiny.com.br/api2';
@@ -63,7 +63,7 @@ async function fetchAllPages(endpoint, extraParams = {}, onProgress = null, onBa
 
             // Save immediately if onBatch callback provided
             if (onBatch && records.length > 0) {
-                const saved = onBatch(records);
+                const saved = await onBatch(records);
                 totalSaved += (typeof saved === 'number' ? saved : records.length);
             }
 
@@ -86,7 +86,6 @@ async function fetchAllPages(endpoint, extraParams = {}, onProgress = null, onBa
                 }).join('; ')
                 : JSON.stringify(erros);
 
-            // "No records" is not really an error
             if (msgErro.includes('Nenhum registro') || msgErro.includes('não retornou registros')) {
                 logger.info(`   📄 Página ${pagina}: nenhum registro`);
                 break;
@@ -122,161 +121,173 @@ function extractRecords(endpoint, retorno) {
 
 // ─── UPSERT functions ────────────────────────────────────
 
-function upsertContasPagar(records) {
-    const db = getDb();
-    const stmt = db.prepare(`
-        INSERT INTO olist_contas_pagar (olist_id, fornecedor, historico, categoria, valor, saldo, data_emissao, data_vencimento, nro_documento, situacao, competencia)
-        VALUES (@olist_id, @fornecedor, @historico, @categoria, @valor, @saldo, @data_emissao, @data_vencimento, @nro_documento, @situacao, @competencia)
-        ON CONFLICT(olist_id) DO UPDATE SET
-            fornecedor = excluded.fornecedor,
-            historico = excluded.historico,
-            categoria = excluded.categoria,
-            valor = excluded.valor,
-            saldo = excluded.saldo,
-            data_emissao = excluded.data_emissao,
-            data_vencimento = excluded.data_vencimento,
-            nro_documento = excluded.nro_documento,
-            situacao = excluded.situacao,
-            competencia = excluded.competencia,
-            updated_at = datetime('now', 'localtime')
-    `);
-
-    const upsertMany = db.transaction((rows) => {
-        for (const r of rows) {
-            stmt.run({
-                olist_id: String(r.id || ''),
-                fornecedor: r.nome_cliente || r.cliente || '',
-                historico: r.historico || '',
-                categoria: r.categoria || '',
-                valor: parseFloat(r.valor) || 0,
-                saldo: parseFloat(r.saldo) || 0,
-                data_emissao: r.data_emissao || '',
-                data_vencimento: r.data_vencimento || r.vencimento || '',
-                nro_documento: r.nro_documento || '',
-                situacao: r.situacao || '',
-                competencia: r.competencia || '',
-            });
+async function upsertContasPagar(records) {
+    const client = await getClient();
+    try {
+        await client.query('BEGIN');
+        for (const r of records) {
+            await client.query(`
+                INSERT INTO olist_contas_pagar (olist_id, fornecedor, historico, categoria, valor, saldo, data_emissao, data_vencimento, nro_documento, situacao, competencia)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                ON CONFLICT(olist_id) DO UPDATE SET
+                    fornecedor = EXCLUDED.fornecedor,
+                    historico = EXCLUDED.historico,
+                    categoria = EXCLUDED.categoria,
+                    valor = EXCLUDED.valor,
+                    saldo = EXCLUDED.saldo,
+                    data_emissao = EXCLUDED.data_emissao,
+                    data_vencimento = EXCLUDED.data_vencimento,
+                    nro_documento = EXCLUDED.nro_documento,
+                    situacao = EXCLUDED.situacao,
+                    competencia = EXCLUDED.competencia,
+                    updated_at = NOW()
+            `, [
+                String(r.id || ''),
+                r.nome_cliente || r.cliente || '',
+                r.historico || '',
+                r.categoria || '',
+                parseFloat(r.valor) || 0,
+                parseFloat(r.saldo) || 0,
+                r.data_emissao || '',
+                r.data_vencimento || r.vencimento || '',
+                r.nro_documento || '',
+                r.situacao || '',
+                r.competencia || '',
+            ]);
         }
-    });
-
-    upsertMany(records);
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
     return records.length;
 }
 
-function upsertContasReceber(records) {
-    const db = getDb();
-    const stmt = db.prepare(`
-        INSERT INTO olist_contas_receber (olist_id, cliente, historico, categoria, valor, saldo, data_emissao, data_vencimento, nro_documento, situacao, competencia)
-        VALUES (@olist_id, @cliente, @historico, @categoria, @valor, @saldo, @data_emissao, @data_vencimento, @nro_documento, @situacao, @competencia)
-        ON CONFLICT(olist_id) DO UPDATE SET
-            cliente = excluded.cliente,
-            historico = excluded.historico,
-            categoria = excluded.categoria,
-            valor = excluded.valor,
-            saldo = excluded.saldo,
-            data_emissao = excluded.data_emissao,
-            data_vencimento = excluded.data_vencimento,
-            nro_documento = excluded.nro_documento,
-            situacao = excluded.situacao,
-            competencia = excluded.competencia,
-            updated_at = datetime('now', 'localtime')
-    `);
-
-    const upsertMany = db.transaction((rows) => {
-        for (const r of rows) {
-            stmt.run({
-                olist_id: String(r.id || ''),
-                cliente: r.nome_cliente || r.cliente || '',
-                historico: r.historico || '',
-                categoria: r.categoria || '',
-                valor: parseFloat(r.valor) || 0,
-                saldo: parseFloat(r.saldo) || 0,
-                data_emissao: r.data_emissao || '',
-                data_vencimento: r.data_vencimento || r.vencimento || '',
-                nro_documento: r.nro_documento || '',
-                situacao: r.situacao || '',
-                competencia: r.competencia || '',
-            });
+async function upsertContasReceber(records) {
+    const client = await getClient();
+    try {
+        await client.query('BEGIN');
+        for (const r of records) {
+            await client.query(`
+                INSERT INTO olist_contas_receber (olist_id, cliente, historico, categoria, valor, saldo, data_emissao, data_vencimento, nro_documento, situacao, competencia)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                ON CONFLICT(olist_id) DO UPDATE SET
+                    cliente = EXCLUDED.cliente,
+                    historico = EXCLUDED.historico,
+                    categoria = EXCLUDED.categoria,
+                    valor = EXCLUDED.valor,
+                    saldo = EXCLUDED.saldo,
+                    data_emissao = EXCLUDED.data_emissao,
+                    data_vencimento = EXCLUDED.data_vencimento,
+                    nro_documento = EXCLUDED.nro_documento,
+                    situacao = EXCLUDED.situacao,
+                    competencia = EXCLUDED.competencia,
+                    updated_at = NOW()
+            `, [
+                String(r.id || ''),
+                r.nome_cliente || r.cliente || '',
+                r.historico || '',
+                r.categoria || '',
+                parseFloat(r.valor) || 0,
+                parseFloat(r.saldo) || 0,
+                r.data_emissao || '',
+                r.data_vencimento || r.vencimento || '',
+                r.nro_documento || '',
+                r.situacao || '',
+                r.competencia || '',
+            ]);
         }
-    });
-
-    upsertMany(records);
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
     return records.length;
 }
 
-function upsertContatos(records) {
-    const db = getDb();
-    const stmt = db.prepare(`
-        INSERT INTO olist_contatos (olist_id, nome, fantasia, tipo_pessoa, cpf_cnpj, email, telefone, cidade, uf, situacao)
-        VALUES (@olist_id, @nome, @fantasia, @tipo_pessoa, @cpf_cnpj, @email, @telefone, @cidade, @uf, @situacao)
-        ON CONFLICT(olist_id) DO UPDATE SET
-            nome = excluded.nome,
-            fantasia = excluded.fantasia,
-            tipo_pessoa = excluded.tipo_pessoa,
-            cpf_cnpj = excluded.cpf_cnpj,
-            email = excluded.email,
-            telefone = excluded.telefone,
-            cidade = excluded.cidade,
-            uf = excluded.uf,
-            situacao = excluded.situacao,
-            updated_at = datetime('now', 'localtime')
-    `);
-
-    const upsertMany = db.transaction((rows) => {
-        for (const r of rows) {
-            stmt.run({
-                olist_id: String(r.id || ''),
-                nome: r.nome || '',
-                fantasia: r.fantasia || r.nome_fantasia || '',
-                tipo_pessoa: r.tipo_pessoa || '',
-                cpf_cnpj: r.cpf_cnpj || '',
-                email: r.email || '',
-                telefone: r.fone || r.telefone || '',
-                cidade: r.cidade || '',
-                uf: r.uf || '',
-                situacao: r.situacao || '',
-            });
+async function upsertContatos(records) {
+    const client = await getClient();
+    try {
+        await client.query('BEGIN');
+        for (const r of records) {
+            await client.query(`
+                INSERT INTO olist_contatos (olist_id, nome, fantasia, tipo_pessoa, cpf_cnpj, email, telefone, cidade, uf, situacao)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+                ON CONFLICT(olist_id) DO UPDATE SET
+                    nome = EXCLUDED.nome,
+                    fantasia = EXCLUDED.fantasia,
+                    tipo_pessoa = EXCLUDED.tipo_pessoa,
+                    cpf_cnpj = EXCLUDED.cpf_cnpj,
+                    email = EXCLUDED.email,
+                    telefone = EXCLUDED.telefone,
+                    cidade = EXCLUDED.cidade,
+                    uf = EXCLUDED.uf,
+                    situacao = EXCLUDED.situacao,
+                    updated_at = NOW()
+            `, [
+                String(r.id || ''),
+                r.nome || '',
+                r.fantasia || r.nome_fantasia || '',
+                r.tipo_pessoa || '',
+                r.cpf_cnpj || '',
+                r.email || '',
+                r.fone || r.telefone || '',
+                r.cidade || '',
+                r.uf || '',
+                r.situacao || '',
+            ]);
         }
-    });
-
-    upsertMany(records);
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
     return records.length;
 }
 
-function upsertNotasEntrada(records) {
-    const db = getDb();
-    const stmt = db.prepare(`
-        INSERT INTO olist_notas_entrada (olist_id, numero, serie, fornecedor, cliente, valor, data_emissao, situacao, tipo)
-        VALUES (@olist_id, @numero, @serie, @fornecedor, @cliente, @valor, @data_emissao, @situacao, @tipo)
-        ON CONFLICT(olist_id) DO UPDATE SET
-            numero = excluded.numero,
-            serie = excluded.serie,
-            fornecedor = excluded.fornecedor,
-            cliente = excluded.cliente,
-            valor = excluded.valor,
-            data_emissao = excluded.data_emissao,
-            situacao = excluded.situacao,
-            tipo = excluded.tipo,
-            updated_at = datetime('now', 'localtime')
-    `);
-
-    const upsertMany = db.transaction((rows) => {
-        for (const r of rows) {
-            stmt.run({
-                olist_id: String(r.id || ''),
-                numero: r.numero || '',
-                serie: r.serie || '',
-                fornecedor: r.nome || r.nome_cliente || '',
-                cliente: r.cliente?.nome || r.cliente || '',
-                valor: parseFloat(r.valor) || 0,
-                data_emissao: r.data_emissao || '',
-                situacao: r.situacao || '',
-                tipo: r.tipo || 'E',
-            });
+async function upsertNotasEntrada(records) {
+    const client = await getClient();
+    try {
+        await client.query('BEGIN');
+        for (const r of records) {
+            await client.query(`
+                INSERT INTO olist_notas_entrada (olist_id, numero, serie, fornecedor, cliente, valor, data_emissao, situacao, tipo)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                ON CONFLICT(olist_id) DO UPDATE SET
+                    numero = EXCLUDED.numero,
+                    serie = EXCLUDED.serie,
+                    fornecedor = EXCLUDED.fornecedor,
+                    cliente = EXCLUDED.cliente,
+                    valor = EXCLUDED.valor,
+                    data_emissao = EXCLUDED.data_emissao,
+                    situacao = EXCLUDED.situacao,
+                    tipo = EXCLUDED.tipo,
+                    updated_at = NOW()
+            `, [
+                String(r.id || ''),
+                r.numero || '',
+                r.serie || '',
+                r.nome || r.nome_cliente || '',
+                r.cliente?.nome || r.cliente || '',
+                parseFloat(r.valor) || 0,
+                r.data_emissao || '',
+                r.situacao || '',
+                r.tipo || 'E',
+            ]);
         }
-    });
-
-    upsertMany(records);
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
     return records.length;
 }
 
@@ -284,11 +295,11 @@ function upsertNotasEntrada(records) {
 
 async function importContasPagar(onProgress = null) {
     logger.info('📥 Importando Contas a Pagar...');
-    const db = getDb();
 
-    const logId = db.prepare(
-        `INSERT INTO olist_sync_log (entity, status) VALUES ('contas_pagar', 'running')`
-    ).run().lastInsertRowid;
+    const { rows } = await query(
+        `INSERT INTO olist_sync_log (entity, status) VALUES ('contas_pagar', 'running') RETURNING id`
+    );
+    const logId = rows[0].id;
 
     try {
         const { totalSaved, pages } = await fetchAllPages(
@@ -296,29 +307,29 @@ async function importContasPagar(onProgress = null) {
             (batch) => upsertContasPagar(batch)
         );
 
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(totalSaved, pages, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'done', records_imported = $1, pages_fetched = $2, finished_at = NOW() WHERE id = $3`,
+            [totalSaved, pages, logId]
+        );
 
         logger.info(`✅ Contas a Pagar: ${totalSaved} registros importados`);
         return { entity: 'contas_pagar', count: totalSaved, pages };
     } catch (err) {
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(err.message, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'error', error = $1, finished_at = NOW() WHERE id = $2`,
+            [err.message, logId]
+        );
         throw err;
     }
 }
 
 async function importContasReceber(onProgress = null) {
     logger.info('📥 Importando Contas a Receber...');
-    const db = getDb();
 
-    const logId = db.prepare(
-        `INSERT INTO olist_sync_log (entity, status) VALUES ('contas_receber', 'running')`
-    ).run().lastInsertRowid;
+    const { rows } = await query(
+        `INSERT INTO olist_sync_log (entity, status) VALUES ('contas_receber', 'running') RETURNING id`
+    );
+    const logId = rows[0].id;
 
     try {
         const { totalSaved, pages } = await fetchAllPages(
@@ -326,29 +337,29 @@ async function importContasReceber(onProgress = null) {
             (batch) => upsertContasReceber(batch)
         );
 
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(totalSaved, pages, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'done', records_imported = $1, pages_fetched = $2, finished_at = NOW() WHERE id = $3`,
+            [totalSaved, pages, logId]
+        );
 
         logger.info(`✅ Contas a Receber: ${totalSaved} registros importados`);
         return { entity: 'contas_receber', count: totalSaved, pages };
     } catch (err) {
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(err.message, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'error', error = $1, finished_at = NOW() WHERE id = $2`,
+            [err.message, logId]
+        );
         throw err;
     }
 }
 
 async function importContatos(onProgress = null) {
     logger.info('📥 Importando Contatos (Fornecedores)...');
-    const db = getDb();
 
-    const logId = db.prepare(
-        `INSERT INTO olist_sync_log (entity, status) VALUES ('contatos', 'running')`
-    ).run().lastInsertRowid;
+    const { rows } = await query(
+        `INSERT INTO olist_sync_log (entity, status) VALUES ('contatos', 'running') RETURNING id`
+    );
+    const logId = rows[0].id;
 
     try {
         const { totalSaved, pages } = await fetchAllPages(
@@ -356,29 +367,29 @@ async function importContatos(onProgress = null) {
             (batch) => upsertContatos(batch)
         );
 
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(totalSaved, pages, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'done', records_imported = $1, pages_fetched = $2, finished_at = NOW() WHERE id = $3`,
+            [totalSaved, pages, logId]
+        );
 
         logger.info(`✅ Contatos: ${totalSaved} registros importados`);
         return { entity: 'contatos', count: totalSaved, pages };
     } catch (err) {
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(err.message, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'error', error = $1, finished_at = NOW() WHERE id = $2`,
+            [err.message, logId]
+        );
         throw err;
     }
 }
 
 async function importNotasEntrada(onProgress = null) {
     logger.info('📥 Importando Notas Fiscais de Entrada...');
-    const db = getDb();
 
-    const logId = db.prepare(
-        `INSERT INTO olist_sync_log (entity, status) VALUES ('notas_entrada', 'running')`
-    ).run().lastInsertRowid;
+    const { rows } = await query(
+        `INSERT INTO olist_sync_log (entity, status) VALUES ('notas_entrada', 'running') RETURNING id`
+    );
+    const logId = rows[0].id;
 
     try {
         const { totalSaved, pages } = await fetchAllPages(
@@ -386,75 +397,81 @@ async function importNotasEntrada(onProgress = null) {
             (batch) => upsertNotasEntrada(batch)
         );
 
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(totalSaved, pages, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'done', records_imported = $1, pages_fetched = $2, finished_at = NOW() WHERE id = $3`,
+            [totalSaved, pages, logId]
+        );
 
         logger.info(`✅ Notas de Entrada: ${totalSaved} registros importados`);
         return { entity: 'notas_entrada', count: totalSaved, pages };
     } catch (err) {
-        db.prepare(`
-            UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')
-            WHERE id = ?
-        `).run(err.message, logId);
+        await query(
+            `UPDATE olist_sync_log SET status = 'error', error = $1, finished_at = NOW() WHERE id = $2`,
+            [err.message, logId]
+        );
         throw err;
     }
 }
 
 // ─── Stats & data access ────────────────────────────────
 
-function getStats() {
-    const db = getDb();
-
-    const counts = {
-        contas_pagar: db.prepare('SELECT COUNT(*) as c FROM olist_contas_pagar').get().c,
-        contas_receber: db.prepare('SELECT COUNT(*) as c FROM olist_contas_receber').get().c,
-        contatos: db.prepare('SELECT COUNT(*) as c FROM olist_contatos').get().c,
-        notas_entrada: db.prepare('SELECT COUNT(*) as c FROM olist_notas_entrada').get().c,
-    };
+async function getStats() {
+    const counts = {};
+    for (const [key, table] of Object.entries({
+        contas_pagar: 'olist_contas_pagar',
+        contas_receber: 'olist_contas_receber',
+        contatos: 'olist_contatos',
+        notas_entrada: 'olist_notas_entrada',
+    })) {
+        const { rows } = await query(`SELECT COUNT(*) as c FROM ${table}`);
+        counts[key] = parseInt(rows[0].c);
+    }
 
     // Last sync per entity
     const lastSync = {};
     for (const entity of Object.keys(counts)) {
-        const row = db.prepare(
-            `SELECT status, records_imported, finished_at FROM olist_sync_log WHERE entity = ? ORDER BY id DESC LIMIT 1`
-        ).get(entity);
-        lastSync[entity] = row || null;
+        const { rows } = await query(
+            `SELECT status, records_imported, finished_at FROM olist_sync_log WHERE entity = $1 ORDER BY id DESC LIMIT 1`,
+            [entity]
+        );
+        lastSync[entity] = rows[0] || null;
     }
 
     // Financial summaries
+    const totalAPagarResult = await query(
+        `SELECT COALESCE(SUM(valor), 0) as total FROM olist_contas_pagar WHERE situacao IN ('aberto', 'parcial')`
+    );
+    const totalAReceberResult = await query(
+        `SELECT COALESCE(SUM(valor), 0) as total FROM olist_contas_receber WHERE situacao IN ('aberto', 'parcial')`
+    );
+    const topCategoriasResult = await query(`
+        SELECT categoria, COUNT(*) as count, SUM(valor) as total
+        FROM olist_contas_pagar
+        WHERE categoria != ''
+        GROUP BY categoria
+        ORDER BY count DESC
+        LIMIT 10
+    `);
+    const topFornecedoresResult = await query(`
+        SELECT fornecedor, COUNT(*) as count, SUM(valor) as total
+        FROM olist_contas_pagar
+        WHERE fornecedor != ''
+        GROUP BY fornecedor
+        ORDER BY total DESC
+        LIMIT 10
+    `);
+
     const summaries = {
-        total_a_pagar: db.prepare(
-            `SELECT COALESCE(SUM(valor), 0) as total FROM olist_contas_pagar WHERE situacao IN ('aberto', 'parcial')`
-        ).get().total,
-        total_a_receber: db.prepare(
-            `SELECT COALESCE(SUM(valor), 0) as total FROM olist_contas_receber WHERE situacao IN ('aberto', 'parcial')`
-        ).get().total,
-        top_categorias: db.prepare(`
-            SELECT categoria, COUNT(*) as count, SUM(valor) as total
-            FROM olist_contas_pagar
-            WHERE categoria != ''
-            GROUP BY categoria
-            ORDER BY count DESC
-            LIMIT 10
-        `).all(),
-        top_fornecedores: db.prepare(`
-            SELECT fornecedor, COUNT(*) as count, SUM(valor) as total
-            FROM olist_contas_pagar
-            WHERE fornecedor != ''
-            GROUP BY fornecedor
-            ORDER BY total DESC
-            LIMIT 10
-        `).all(),
+        total_a_pagar: parseFloat(totalAPagarResult.rows[0].total),
+        total_a_receber: parseFloat(totalAReceberResult.rows[0].total),
+        top_categorias: topCategoriasResult.rows,
+        top_fornecedores: topFornecedoresResult.rows,
     };
 
     return { counts, lastSync, summaries };
 }
 
-function getData(entity, { page = 1, limit = 50, search = '' } = {}) {
-    const db = getDb();
-
+async function getData(entity, { page = 1, limit = 50, search = '' } = {}) {
     const tableMap = {
         contas_pagar: 'olist_contas_pagar',
         contas_receber: 'olist_contas_receber',
@@ -469,8 +486,9 @@ function getData(entity, { page = 1, limit = 50, search = '' } = {}) {
 
     let whereClause = '';
     let params = [];
+    let paramIdx = 1;
+
     if (search) {
-        // Search across text columns
         const searchCols = {
             olist_contas_pagar: ['fornecedor', 'historico', 'categoria', 'nro_documento'],
             olist_contas_receber: ['cliente', 'historico', 'categoria', 'nro_documento'],
@@ -479,17 +497,22 @@ function getData(entity, { page = 1, limit = 50, search = '' } = {}) {
         };
         const cols = searchCols[table] || [];
         if (cols.length > 0) {
-            const conditions = cols.map(c => `${c} LIKE ?`).join(' OR ');
+            const conditions = cols.map(c => `${c} ILIKE $${paramIdx++}`).join(' OR ');
             whereClause = `WHERE (${conditions})`;
             params = cols.map(() => `%${search}%`);
         }
     }
 
-    const total = db.prepare(`SELECT COUNT(*) as c FROM ${table} ${whereClause}`).get(...params).c;
-    const rows = db.prepare(`SELECT * FROM ${table} ${whereClause} ORDER BY id DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
+    const totalResult = await query(`SELECT COUNT(*) as c FROM ${table} ${whereClause}`, params);
+    const total = parseInt(totalResult.rows[0].c);
+
+    const rowsResult = await query(
+        `SELECT * FROM ${table} ${whereClause} ORDER BY id DESC LIMIT $${paramIdx++} OFFSET $${paramIdx++}`,
+        [...params, limit, offset]
+    );
 
     return {
-        rows,
+        rows: rowsResult.rows,
         total,
         page,
         totalPages: Math.ceil(total / limit) || 1,

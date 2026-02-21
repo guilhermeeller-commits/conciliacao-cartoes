@@ -6,15 +6,15 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
-const { getDb } = require('../../database/connection');
+const { query } = require('../../database/connection');
 const logger = require('../../utils/logger');
 const cardRulesRepo = require('../../repositories/card-rules-repo');
 
 // ─── Card Rules (cartões → conta financeira) ──
 
-router.get('/card-rules', (req, res) => {
+router.get('/card-rules', async (req, res) => {
     try {
-        const cartoes = cardRulesRepo.getCardAccounts();
+        const cartoes = await cardRulesRepo.getCardAccounts();
         res.json({ cartoes });
     } catch (e) {
         logger.error('Erro ao ler card-rules:', e);
@@ -22,9 +22,9 @@ router.get('/card-rules', (req, res) => {
     }
 });
 
-router.put('/card-rules', (req, res) => {
+router.put('/card-rules', async (req, res) => {
     try {
-        cardRulesRepo.saveCardAccounts(req.body.cartoes || {});
+        await cardRulesRepo.saveCardAccounts(req.body.cartoes || {});
         res.json({ ok: true, message: 'Configurações de cartões salvas' });
     } catch (e) {
         logger.error('Erro ao salvar card-rules:', e);
@@ -34,13 +34,13 @@ router.put('/card-rules', (req, res) => {
 
 // ─── Classification Rules (regex → categoria) ─
 
-router.get('/classification-rules', (req, res) => {
+router.get('/classification-rules', async (req, res) => {
     try {
-        const regras = cardRulesRepo.getClassificationRules().map(r => ({
+        const regras = (await cardRulesRepo.getClassificationRules()).map(r => ({
             padrao: r.padrao,
             categoria: r.categoria,
         }));
-        const categorias = cardRulesRepo.getCategories();
+        const categorias = await cardRulesRepo.getCategories();
         res.json({ regras, categorias });
     } catch (e) {
         logger.error('Erro ao ler regras:', e);
@@ -48,10 +48,10 @@ router.get('/classification-rules', (req, res) => {
     }
 });
 
-router.put('/classification-rules', (req, res) => {
+router.put('/classification-rules', async (req, res) => {
     try {
-        if (req.body.regras) cardRulesRepo.saveClassificationRules(req.body.regras);
-        if (req.body.categorias) cardRulesRepo.saveCategories(req.body.categorias);
+        if (req.body.regras) await cardRulesRepo.saveClassificationRules(req.body.regras);
+        if (req.body.categorias) await cardRulesRepo.saveCategories(req.body.categorias);
         res.json({ ok: true, message: 'Regras de classificação salvas' });
     } catch (e) {
         logger.error('Erro ao salvar regras:', e);
@@ -59,12 +59,11 @@ router.put('/classification-rules', (req, res) => {
     }
 });
 
-// ─── Learned Mappings (SQLite) ─────────────────
+// ─── Learned Mappings ──────────────────────────
 
-router.get('/learned-mappings', (req, res) => {
+router.get('/learned-mappings', async (req, res) => {
     try {
-        const db = getDb();
-        const rows = db.prepare('SELECT id, descricao, categoria, criado_em FROM learned_mappings ORDER BY criado_em DESC').all();
+        const { rows } = await query('SELECT id, descricao, categoria, criado_em FROM learned_mappings ORDER BY criado_em DESC');
         res.json({ mappings: rows });
     } catch (e) {
         logger.error('Erro ao ler mapeamentos:', e);
@@ -72,11 +71,10 @@ router.get('/learned-mappings', (req, res) => {
     }
 });
 
-router.delete('/learned-mappings/:id', (req, res) => {
+router.delete('/learned-mappings/:id', async (req, res) => {
     try {
-        const db = getDb();
-        const result = db.prepare('DELETE FROM learned_mappings WHERE id = ?').run(req.params.id);
-        if (result.changes === 0) {
+        const result = await query('DELETE FROM learned_mappings WHERE id = $1', [req.params.id]);
+        if (result.rowCount === 0) {
             return res.status(404).json({ erro: 'Mapeamento não encontrado' });
         }
         res.json({ ok: true, message: 'Mapeamento removido' });
@@ -118,23 +116,23 @@ router.post('/test-olist', async (req, res) => {
     }
 });
 
-// ─── Plano de Contas (read from SQLite) ────────
+// ─── Plano de Contas (read from PostgreSQL) ────
 
-router.get('/plano-contas', (req, res) => {
+router.get('/plano-contas', async (req, res) => {
     try {
-        const db = getDb();
         const search = (req.query.search || '').trim();
 
-        let query = 'SELECT id, olist_id, descricao, grupo, considera_dre, competencia_padrao FROM erp_plano_contas';
+        let sql = 'SELECT id, olist_id, descricao, grupo, considera_dre, competencia_padrao FROM erp_plano_contas';
         const params = [];
+        let paramIdx = 1;
 
         if (search) {
-            query += ' WHERE descricao LIKE ? OR grupo LIKE ?';
+            sql += ` WHERE descricao ILIKE $${paramIdx++} OR grupo ILIKE $${paramIdx++}`;
             params.push(`%${search}%`, `%${search}%`);
         }
 
-        query += ' ORDER BY descricao ASC';
-        const rows = db.prepare(query).all(...params);
+        sql += ' ORDER BY descricao ASC';
+        const { rows } = await query(sql, params);
 
         res.json({ ok: true, plano_contas: rows, total: rows.length });
     } catch (e) {
@@ -143,42 +141,27 @@ router.get('/plano-contas', (req, res) => {
     }
 });
 
-// ─── Database Backup ───────────────────────────
+// ─── Database Info (Cloud SQL — no file-based backup) ────
 
-const DB_PATH = path.join(__dirname, '..', '..', '..', 'data', 'calisul-financeiro.db');
-
-router.get('/backup', (req, res) => {
+router.get('/backup', async (req, res) => {
     try {
-        if (!fs.existsSync(DB_PATH)) {
-            return res.status(404).json({ erro: 'Banco de dados não encontrado' });
-        }
-
-        const stat = fs.statSync(DB_PATH);
-        const dateStr = new Date().toISOString().slice(0, 10);
-
-        res.setHeader('Content-Disposition', `attachment; filename="calisul-financeiro_backup_${dateStr}.db"`);
-        res.setHeader('Content-Type', 'application/x-sqlite3');
-        res.setHeader('Content-Length', stat.size);
-
-        const stream = fs.createReadStream(DB_PATH);
-        stream.pipe(res);
+        res.status(501).json({
+            message: 'Backup via download não disponível para PostgreSQL (Cloud SQL). Use os backups automáticos do Google Cloud Console.',
+        });
     } catch (e) {
-        logger.error('Erro ao criar backup:', e);
-        res.status(500).json({ erro: 'Erro ao criar backup do banco' });
+        res.status(500).json({ erro: 'Erro ao verificar backup' });
     }
 });
 
-router.get('/backup/info', (req, res) => {
+router.get('/backup/info', async (req, res) => {
     try {
-        if (!fs.existsSync(DB_PATH)) {
-            return res.json({ exists: false });
-        }
-        const stat = fs.statSync(DB_PATH);
+        // Get database size from PostgreSQL
+        const { rows } = await query("SELECT pg_size_pretty(pg_database_size(current_database())) as size");
         res.json({
             exists: true,
-            size: stat.size,
-            sizeFormatted: formatBytes(stat.size),
-            lastModified: stat.mtime.toISOString(),
+            sizeFormatted: rows[0].size,
+            type: 'Cloud SQL (PostgreSQL)',
+            message: 'Backups gerenciados automaticamente pelo Google Cloud SQL',
         });
     } catch (e) {
         logger.error('Erro ao verificar info do banco:', e);
@@ -186,75 +169,10 @@ router.get('/backup/info', (req, res) => {
     }
 });
 
-function formatBytes(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
-
-// Restore requires multer for file upload
-const multer = require('multer');
-const Database = require('better-sqlite3');
-const { closeDb } = require('../../database/connection');
-
-const upload = multer({
-    dest: path.join(__dirname, '..', '..', '..', '.tmp'),
-    limits: { fileSize: 500 * 1024 * 1024 }, // 500MB max
-});
-
-router.post('/restore', upload.single('database'), (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ erro: 'Nenhum arquivo enviado' });
-        }
-
-        const uploadPath = req.file.path;
-
-        // Validate: try to open the uploaded file as SQLite
-        try {
-            const testDb = new Database(uploadPath, { readonly: true });
-            // Quick sanity check: run a simple query
-            testDb.pragma('integrity_check');
-            testDb.close();
-        } catch (validationErr) {
-            // Clean up invalid file
-            fs.unlinkSync(uploadPath);
-            return res.status(400).json({
-                erro: 'Arquivo inválido — não é um banco SQLite válido',
-                detalhes: validationErr.message,
-            });
-        }
-
-        // Close current connection
-        closeDb();
-
-        // Backup current db before replacing
-        const backupPath = DB_PATH + '.bak';
-        if (fs.existsSync(DB_PATH)) {
-            fs.copyFileSync(DB_PATH, backupPath);
-        }
-
-        // Replace with uploaded file
-        fs.copyFileSync(uploadPath, DB_PATH);
-        fs.unlinkSync(uploadPath);
-
-        // WAL files should be removed so the new db starts clean
-        const walPath = DB_PATH + '-wal';
-        const shmPath = DB_PATH + '-shm';
-        if (fs.existsSync(walPath)) fs.unlinkSync(walPath);
-        if (fs.existsSync(shmPath)) fs.unlinkSync(shmPath);
-
-        logger.info('🗄️  Banco restaurado com sucesso');
-        res.json({
-            ok: true,
-            message: 'Banco de dados restaurado com sucesso. Recarregue a página.',
-        });
-    } catch (e) {
-        logger.error('Erro ao restaurar banco:', e);
-        res.status(500).json({ erro: 'Erro ao restaurar banco: ' + e.message });
-    }
+router.post('/restore', (req, res) => {
+    res.status(501).json({
+        message: 'Restore via upload não disponível para PostgreSQL (Cloud SQL). Use os backups automáticos do Google Cloud Console.',
+    });
 });
 
 module.exports = router;
@@ -367,18 +285,16 @@ router.put('/olist-token', async (req, res) => {
 
 // ─── Notifications ─────────────────────────────
 
-router.get('/notifications', (req, res) => {
+router.get('/notifications', async (req, res) => {
     try {
-        const db = getDb();
         const limit = parseInt(req.query.limit) || 20;
-        const rows = db.prepare(`
-            SELECT id, type, title, message, read, created_at
-            FROM notifications
-            ORDER BY created_at DESC
-            LIMIT ?
-        `).all(limit);
+        const { rows } = await query(
+            'SELECT id, type, title, message, read, created_at FROM notifications ORDER BY created_at DESC LIMIT $1',
+            [limit]
+        );
 
-        const unreadCount = db.prepare('SELECT COUNT(*) as c FROM notifications WHERE read = 0').get().c;
+        const unreadResult = await query('SELECT COUNT(*) as c FROM notifications WHERE read = 0');
+        const unreadCount = parseInt(unreadResult.rows[0].c);
 
         res.json({ ok: true, notifications: rows, unreadCount });
     } catch (e) {
@@ -387,10 +303,9 @@ router.get('/notifications', (req, res) => {
     }
 });
 
-router.post('/notifications/:id/read', (req, res) => {
+router.post('/notifications/:id/read', async (req, res) => {
     try {
-        const db = getDb();
-        db.prepare('UPDATE notifications SET read = 1 WHERE id = ?').run(req.params.id);
+        await query('UPDATE notifications SET read = 1 WHERE id = $1', [req.params.id]);
         res.json({ ok: true });
     } catch (e) {
         logger.error('Erro ao marcar notificação:', e);
@@ -398,10 +313,9 @@ router.post('/notifications/:id/read', (req, res) => {
     }
 });
 
-router.post('/notifications/read-all', (req, res) => {
+router.post('/notifications/read-all', async (req, res) => {
     try {
-        const db = getDb();
-        db.prepare('UPDATE notifications SET read = 1 WHERE read = 0').run();
+        await query('UPDATE notifications SET read = 1 WHERE read = 0');
         res.json({ ok: true });
     } catch (e) {
         logger.error('Erro ao marcar todas notificações:', e);

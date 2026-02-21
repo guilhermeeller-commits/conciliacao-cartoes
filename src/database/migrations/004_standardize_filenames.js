@@ -8,9 +8,11 @@ const fs = require('fs');
 module.exports = {
     name: '004_standardize_filenames',
 
-    up(db) {
+    async up(client) {
         // Load card config
         const cardRulesPath = path.join(__dirname, '../../../config/card-rules.json');
+        if (!fs.existsSync(cardRulesPath)) return;
+
         const cardRules = JSON.parse(fs.readFileSync(cardRulesPath, 'utf-8'));
 
         // Build card_name → fornecedor map
@@ -20,35 +22,32 @@ module.exports = {
         }
 
         // Get all existing statements
-        const statements = db.prepare('SELECT id, filename, card_name, statement_date, due_date FROM card_statements').all();
+        const { rows: statements } = await client.query(
+            'SELECT id, filename, card_name, statement_date, due_date FROM card_statements'
+        );
 
-        const updateStmt = db.prepare('UPDATE card_statements SET filename = ? WHERE id = ?');
+        for (const s of statements) {
+            const fornecedor = cardToFornecedor[s.card_name] || s.card_name;
+            const dateStr = s.due_date || s.statement_date;
+            if (!dateStr) continue;
 
-        const updateAll = db.transaction((stmts) => {
-            for (const s of stmts) {
-                const fornecedor = cardToFornecedor[s.card_name] || s.card_name;
-                const dateStr = s.due_date || s.statement_date;
-                if (!dateStr) continue;
-
-                let mm, yy;
-                if (dateStr.includes('-')) {
-                    // YYYY-MM-DD format
-                    const parts = dateStr.split('-');
-                    mm = parts[1];
-                    yy = parts[0].slice(-2);
-                } else {
-                    // DD/MM/YYYY format
-                    const parts = dateStr.split('/');
-                    if (parts.length !== 3) continue;
-                    mm = parts[1].padStart(2, '0');
-                    yy = parts[2].slice(-2);
-                }
-
-                const newName = `${mm}/${yy} - Cartão - ${fornecedor}`;
-                updateStmt.run(newName, s.id);
+            let mm, yy;
+            if (dateStr.includes('-')) {
+                const parts = dateStr.split('-');
+                mm = parts[1];
+                yy = parts[0].slice(-2);
+            } else {
+                const parts = dateStr.split('/');
+                if (parts.length !== 3) continue;
+                mm = parts[1].padStart(2, '0');
+                yy = parts[2].slice(-2);
             }
-        });
 
-        updateAll(statements);
+            const newName = `${mm}/${yy} - Cartão - ${fornecedor}`;
+            await client.query(
+                'UPDATE card_statements SET filename = $1 WHERE id = $2',
+                [newName, s.id]
+            );
+        }
     },
 };

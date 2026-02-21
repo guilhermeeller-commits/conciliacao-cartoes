@@ -1,41 +1,57 @@
-const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+/**
+ * Database Connection — PostgreSQL via `pg` Pool.
+ *
+ * Usa a variável de ambiente DATABASE_URL para conectar ao Cloud SQL (PostgreSQL).
+ * Exporta helpers query(), getClient() (para transactions) e o pool.
+ */
+const { Pool } = require('pg');
 const logger = require('../utils/logger');
 
-// Usa a variável de ambiente DB_PATH se existir (para volumes no Railway/Render),
-// caso contrário, salva na pasta local 'data/calisul-financeiro.db'
-const DB_PATH = process.env.DB_PATH || path.join(__dirname, '../../data/calisul-financeiro.db');
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+});
 
-// Ensure data directory exists
-const dataDir = path.dirname(DB_PATH);
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+pool.on('connect', () => {
+    logger.info('🗄️  PostgreSQL conectado');
+});
+
+pool.on('error', (err) => {
+    logger.error('🗄️  Erro inesperado no pool PostgreSQL:', err.message);
+});
+
+/**
+ * Execute a query using the connection pool.
+ * @param {string} text - SQL query (use $1, $2, ... for params)
+ * @param {Array} params - Query parameters
+ * @returns {Promise<import('pg').QueryResult>}
+ */
+async function query(text, params) {
+    return pool.query(text, params);
 }
 
-let db;
-
-function getDb() {
-    if (!db) {
-        db = new Database(DB_PATH);
-        db.pragma('journal_mode = WAL');
-        db.pragma('foreign_keys = ON');
-        db.pragma('busy_timeout = 5000');
-        logger.info(`🗄️  SQLite conectado: ${DB_PATH}`);
-    }
-    return db;
+/**
+ * Get a dedicated client from the pool (for transactions).
+ * MUST call client.release() when done.
+ * @returns {Promise<import('pg').PoolClient>}
+ */
+async function getClient() {
+    return pool.connect();
 }
 
-function closeDb() {
-    if (db) {
-        db.close();
-        db = null;
-        logger.info('🗄️  SQLite fechado');
-    }
+/**
+ * Close the pool gracefully.
+ */
+async function closeDb() {
+    await pool.end();
+    logger.info('🗄️  PostgreSQL pool fechado');
 }
 
 // Graceful shutdown
-process.on('SIGINT', () => { closeDb(); process.exit(0); });
-process.on('SIGTERM', () => { closeDb(); process.exit(0); });
+process.on('SIGINT', async () => { await closeDb(); process.exit(0); });
+process.on('SIGTERM', async () => { await closeDb(); process.exit(0); });
 
-module.exports = { getDb, closeDb };
+module.exports = { query, getClient, pool, closeDb };

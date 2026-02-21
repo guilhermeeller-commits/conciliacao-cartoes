@@ -8,7 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const PDFDocument = require('pdfkit');
-const { getDb } = require('../../database/connection');
+const { query } = require('../../database/connection');
 const logger = require('../../utils/logger');
 
 // ─── Helpers ──────────────────────────────────
@@ -30,7 +30,6 @@ function formatDate(dateStr) {
  * Shared PDF header section
  */
 function addHeader(doc, title, subtitle) {
-    // Brand bar
     doc.rect(0, 0, 612, 60).fill('#1a1f36');
     doc.fontSize(20).fillColor('#ffffff').text('Calisul — Central Financeira', 40, 18);
     doc.fontSize(10).fillColor('#8b95b3').text(new Date().toLocaleDateString('pt-BR', {
@@ -61,7 +60,6 @@ function addTable(doc, headers, rows, startX = 40) {
     const colWidth = (530 / headers.length);
     let y = doc.y + 10;
 
-    // Header row
     doc.rect(startX, y, 530, 20).fill('#f0f2f8');
     headers.forEach((h, i) => {
         doc.fontSize(8).fillColor('#4a5076')
@@ -69,7 +67,6 @@ function addTable(doc, headers, rows, startX = 40) {
     });
     y += 22;
 
-    // Data rows
     rows.forEach((row, ri) => {
         if (y > 720) {
             doc.addPage();
@@ -90,9 +87,8 @@ function addTable(doc, headers, rows, startX = 40) {
 
 // ─── Invoice Summary Report ───────────────────
 
-router.get('/faturas', (req, res) => {
+router.get('/faturas', async (req, res) => {
     try {
-        const db = getDb();
         const mes = req.query.mes || new Date().toISOString().slice(0, 7);
         const [year, month] = mes.split('-').map(Number);
 
@@ -102,24 +98,24 @@ router.get('/faturas', (req, res) => {
             : `${year}-${String(month + 1).padStart(2, '0')}-01`;
 
         // Fetch statements for the month
-        const statements = db.prepare(`
+        const { rows: statements } = await query(`
             SELECT cs.*, 
                    COUNT(ct.id) as total_transactions,
                    SUM(CASE WHEN ct.category IS NOT NULL AND ct.category != '' THEN 1 ELSE 0 END) as categorized_count,
-                   SUM(CASE WHEN ct.olist_status = 'sent' THEN 1 ELSE 0 END) as sent_count
+                   COALESCE(SUM(CASE WHEN ct.olist_id IS NOT NULL THEN 1 ELSE 0 END), 0) as sent_count
             FROM card_statements cs
             LEFT JOIN card_transactions ct ON ct.statement_id = cs.id
-            WHERE cs.closing_date >= ? AND cs.closing_date < ?
+            WHERE cs.statement_date >= $1 AND cs.statement_date < $2
             GROUP BY cs.id
-            ORDER BY cs.closing_date ASC
-        `).all(startDate, endDate);
+            ORDER BY cs.statement_date ASC
+        `, [startDate, endDate]);
 
         // Summary stats
         const totalStatements = statements.length;
-        const totalValue = statements.reduce((sum, s) => sum + (s.total_amount || 0), 0);
-        const totalTransactions = statements.reduce((sum, s) => sum + s.total_transactions, 0);
-        const totalCategorized = statements.reduce((sum, s) => sum + s.categorized_count, 0);
-        const totalSent = statements.reduce((sum, s) => sum + s.sent_count, 0);
+        const totalValue = statements.reduce((sum, s) => sum + (parseFloat(s.total_amount) || 0), 0);
+        const totalTransactions = statements.reduce((sum, s) => sum + parseInt(s.total_transactions), 0);
+        const totalCategorized = statements.reduce((sum, s) => sum + parseInt(s.categorized_count), 0);
+        const totalSent = statements.reduce((sum, s) => sum + parseInt(s.sent_count), 0);
 
         // Create PDF
         const doc = new PDFDocument({ size: 'LETTER', margin: 40 });
@@ -147,10 +143,10 @@ router.get('/faturas', (req, res) => {
             doc.fontSize(10).fillColor('#6b7394').text('Nenhuma fatura encontrada para este período.', 40);
         } else {
             addTable(doc,
-                ['Cartão', 'Fechamento', 'Valor Total', 'Transações', 'Categorizadas', 'Enviadas'],
+                ['Cartão', 'Data', 'Valor Total', 'Transações', 'Categorizadas', 'Enviadas'],
                 statements.map(s => [
                     s.card_name || '—',
-                    formatDate(s.closing_date),
+                    formatDate(s.statement_date),
                     formatCurrency(s.total_amount),
                     String(s.total_transactions),
                     String(s.categorized_count),
@@ -173,25 +169,21 @@ router.get('/faturas', (req, res) => {
 
 // ─── Repository Summary Report ────────────────
 
-router.get('/repositorio', (req, res) => {
+router.get('/repositorio', async (req, res) => {
     try {
-        const db = getDb();
-
         // Gather stats
         const stats = {};
         const tables = [
-            { key: 'contas_pagar', table: 'erp_contas_pagar', label: 'Contas a Pagar' },
-            { key: 'contas_receber', table: 'erp_contas_receber', label: 'Contas a Receber' },
-            { key: 'contatos', table: 'erp_contatos', label: 'Fornecedores' },
-            { key: 'notas_entrada', table: 'erp_notas_entrada', label: 'Notas de Entrada' },
+            { key: 'contas_pagar', table: 'olist_contas_pagar', label: 'Contas a Pagar' },
+            { key: 'contas_receber', table: 'olist_contas_receber', label: 'Contas a Receber' },
+            { key: 'contatos', table: 'olist_contatos', label: 'Fornecedores' },
+            { key: 'notas_entrada', table: 'olist_notas_entrada', label: 'Notas de Entrada' },
         ];
 
         for (const t of tables) {
             try {
-                stats[t.key] = {
-                    label: t.label,
-                    count: db.prepare(`SELECT COUNT(*) as c FROM ${t.table}`).get().c,
-                };
+                const { rows } = await query(`SELECT COUNT(*) as c FROM ${t.table}`);
+                stats[t.key] = { label: t.label, count: parseInt(rows[0].c) };
             } catch {
                 stats[t.key] = { label: t.label, count: 0 };
             }
@@ -200,27 +192,29 @@ router.get('/repositorio', (req, res) => {
         // Top categories
         let topCategories = [];
         try {
-            topCategories = db.prepare(`
-                SELECT nome_cat as categoria, COUNT(*) as total
-                FROM erp_contas_pagar
-                WHERE nome_cat IS NOT NULL AND nome_cat != ''
-                GROUP BY nome_cat
+            const { rows } = await query(`
+                SELECT categoria, COUNT(*) as total
+                FROM olist_contas_pagar
+                WHERE categoria IS NOT NULL AND categoria != ''
+                GROUP BY categoria
                 ORDER BY total DESC
                 LIMIT 10
-            `).all();
+            `);
+            topCategories = rows;
         } catch { /* table might not exist */ }
 
         // Top suppliers
         let topSuppliers = [];
         try {
-            topSuppliers = db.prepare(`
-                SELECT nome_fornecedor as fornecedor, SUM(valor) as total_valor, COUNT(*) as qtd
-                FROM erp_contas_pagar
-                WHERE nome_fornecedor IS NOT NULL AND nome_fornecedor != ''
-                GROUP BY nome_fornecedor
+            const { rows } = await query(`
+                SELECT fornecedor, SUM(valor) as total_valor, COUNT(*) as qtd
+                FROM olist_contas_pagar
+                WHERE fornecedor IS NOT NULL AND fornecedor != ''
+                GROUP BY fornecedor
                 ORDER BY total_valor DESC
                 LIMIT 10
-            `).all();
+            `);
+            topSuppliers = rows;
         } catch { /* table might not exist */ }
 
         // Create PDF

@@ -3,23 +3,24 @@
  * Mapeamentos aprendidos (descrição → categoria).
  * Substitui o antigo config/learned-mappings.json.
  */
-const { getDb } = require('../database/connection');
+const { query } = require('../database/connection');
 const logger = require('../utils/logger');
 
 const learnedMappingsRepo = {
-    getAll() {
-        const rows = getDb().prepare(`SELECT descricao, categoria FROM learned_mappings`).all();
+    async getAll() {
+        const { rows } = await query('SELECT descricao, categoria FROM learned_mappings');
         const map = {};
         for (const r of rows) map[r.descricao] = r.categoria;
         return map;
     },
 
-    salvar(descricao, categoria) {
-        getDb().prepare(`
-            INSERT INTO learned_mappings (descricao, categoria)
-            VALUES (?, ?)
-            ON CONFLICT(descricao) DO UPDATE SET categoria = excluded.categoria
-        `).run(descricao, categoria);
+    async salvar(descricao, categoria) {
+        await query(
+            `INSERT INTO learned_mappings (descricao, categoria)
+             VALUES ($1, $2)
+             ON CONFLICT(descricao) DO UPDATE SET categoria = EXCLUDED.categoria`,
+            [descricao, categoria]
+        );
         logger.info(`💾 Mapeamento salvo: "${descricao}" → ${categoria}`);
     },
 };

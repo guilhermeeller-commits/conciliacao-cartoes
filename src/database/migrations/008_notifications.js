@@ -2,15 +2,15 @@
  * Migration 008 — Notifications table
  */
 
-function up(db) {
-    db.exec(`
+async function up(client) {
+    await client.query(`
         CREATE TABLE IF NOT EXISTS notifications (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             type TEXT DEFAULT 'info',
             title TEXT NOT NULL,
             message TEXT DEFAULT '',
             read INTEGER DEFAULT 0,
-            created_at TEXT DEFAULT (datetime('now', 'localtime'))
+            created_at TIMESTAMP DEFAULT NOW()
         );
 
         CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);

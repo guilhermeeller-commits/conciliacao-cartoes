@@ -15,9 +15,10 @@ const { classificarComIA } = require('../../services/gemini-classifier');
 const logger = require('../../utils/logger');
 const repo = require('../../repositories/card-statements-repo');
 const cardRulesRepo = require('../../repositories/card-rules-repo');
+const { query } = require('../../database/connection');
 
-// Card name → financial account mapping (from SQLite)
-function getFinancialAccount(bancoDetectado) {
+// Card name → financial account mapping
+async function getFinancialAccount(bancoDetectado) {
     const mapping = {
         'mercadopago': 'Cartão Mercado Pago',
         'caixa': 'Cartão Caixa',
@@ -25,7 +26,7 @@ function getFinancialAccount(bancoDetectado) {
         'santander': 'Cartão Santander',
     };
     const cardName = mapping[bancoDetectado] || bancoDetectado;
-    const cardInfo = cardRulesRepo.getCardAccountByName(cardName);
+    const cardInfo = await cardRulesRepo.getCardAccountByName(cardName);
     return {
         cardName,
         financialAccount: cardInfo?.conta_nome || null,
@@ -34,8 +35,6 @@ function getFinancialAccount(bancoDetectado) {
 
 /**
  * Gera nome de exibição padronizado: MM/YY - Cartão - {Fornecedor}
- * Ex: vencimento="15/02/2026", fornecedor="Caixa Econômica Federal"
- *  →  "02/26 - Cartão - Caixa Econômica Federal"
  */
 function formatDisplayName(vencimento, fornecedor) {
     if (!vencimento || !fornecedor) return null;
@@ -65,12 +64,11 @@ const upload = multer({
 
 /**
  * GET /api/card-statements
- * List all card statements with optional filters
  */
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
     try {
         const { card, dateFrom, dateTo, search } = req.query;
-        const statements = repo.listStatements({ card, dateFrom, dateTo, search });
+        const statements = await repo.listStatements({ card, dateFrom, dateTo, search });
         res.json({ statements, total: statements.length });
     } catch (error) {
         logger.error(`❌ Erro ao listar extratos: ${error.message}`);
@@ -80,12 +78,11 @@ router.get('/', (req, res) => {
 
 /**
  * GET /api/card-statements/cards
- * List distinct card names from imported statements + config
  */
-router.get('/cards', (req, res) => {
+router.get('/cards', async (req, res) => {
     try {
-        const fromDb = repo.getDistinctCards();
-        const fromConfig = Object.keys(cardRulesRepo.getCardAccounts());
+        const fromDb = await repo.getDistinctCards();
+        const fromConfig = Object.keys(await cardRulesRepo.getCardAccounts());
         const all = [...new Set([...fromConfig, ...fromDb])].sort();
         res.json({ cards: all });
     } catch (error) {
@@ -96,15 +93,14 @@ router.get('/cards', (req, res) => {
 
 /**
  * GET /api/card-statements/:id
- * Get statement detail with transactions
  */
-router.get('/:id', (req, res) => {
+router.get('/:id', async (req, res) => {
     try {
-        const statement = repo.getStatementById(req.params.id);
+        const statement = await repo.getStatementById(req.params.id);
         if (!statement) {
             return res.status(404).json({ erro: 'Extrato não encontrado' });
         }
-        const transactions = repo.getTransactions(statement.id);
+        const transactions = await repo.getTransactions(statement.id);
         res.json({ statement, transactions });
     } catch (error) {
         logger.error(`❌ Erro ao buscar extrato: ${error.message}`);
@@ -114,7 +110,6 @@ router.get('/:id', (req, res) => {
 
 /**
  * POST /api/card-statements/upload
- * Upload a PDF, parse, classify, and save
  */
 router.post('/upload', upload.single('pdf'), async (req, res) => {
     try {
@@ -132,15 +127,15 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
         }
 
         // 2. Classify transactions
-        const itensClassificados = classificarItens(transacoes);
+        const itensClassificados = await classificarItens(transacoes);
         const resumo = gerarResumo(itensClassificados);
 
         // 3. Map card name and financial account
-        const { cardName, financialAccount } = getFinancialAccount(banco);
+        const { cardName, financialAccount } = await getFinancialAccount(banco);
 
         // 3.5 Check for duplicate: same card + same month/year
         const vencimentoRaw = metadados.vencimento || metadados.emissao || new Date().toISOString().slice(0, 10);
-        const existing = repo.findDuplicateStatement(cardName, vencimentoRaw);
+        const existing = await repo.findDuplicateStatement(cardName, vencimentoRaw);
         if (existing) {
             logger.warn(`⚠️ Duplicata detectada: ${cardName} já tem extrato para este mês (ID ${existing.id}: "${existing.filename}")`);
             return res.status(409).json({
@@ -156,13 +151,13 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
         // 4. Calculate total
         const totalAmount = itensClassificados.reduce((sum, t) => sum + (t.valor || 0), 0);
 
-        // 5. Generate standardized display name: MM/YY - Cartão - {Fornecedor}
-        const cardInfo = cardRulesRepo.getCardAccountByName(cardName);
+        // 5. Generate standardized display name
+        const cardInfo = await cardRulesRepo.getCardAccountByName(cardName);
         const fornecedorNome = cardInfo?.fornecedor || cardName;
         const displayName = formatDisplayName(vencimentoRaw, fornecedorNome) || req.file.originalname;
 
         // 6. Save statement
-        const statementId = repo.insertStatement({
+        const statementId = await repo.insertStatement({
             filename: displayName,
             card_name: cardName,
             financial_account: financialAccount,
@@ -175,10 +170,10 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
         });
 
         // 7. Save transactions
-        repo.insertTransactions(statementId, itensClassificados);
+        await repo.insertTransactions(statementId, itensClassificados);
 
-        // 8. Update counts (categorized_count based on classified transactions)
-        repo.updateStatementCounts(statementId);
+        // 8. Update counts
+        await repo.updateStatementCounts(statementId);
 
         logger.info(`✅ Extrato salvo: ID ${statementId}, "${displayName}", ${itensClassificados.length} transações`);
 
@@ -203,15 +198,14 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
 
 /**
  * DELETE /api/card-statements/:id
- * Remove a statement and all its transactions
  */
-router.delete('/:id', (req, res) => {
+router.delete('/:id', async (req, res) => {
     try {
-        const statement = repo.getStatementById(req.params.id);
+        const statement = await repo.getStatementById(req.params.id);
         if (!statement) {
             return res.status(404).json({ erro: 'Extrato não encontrado' });
         }
-        repo.deleteStatement(req.params.id);
+        await repo.deleteStatement(req.params.id);
         logger.info(`🗑️  Extrato deletado: ID ${req.params.id}`);
         res.json({ ok: true, deleted: req.params.id });
     } catch (error) {
@@ -222,15 +216,14 @@ router.delete('/:id', (req, res) => {
 
 /**
  * PATCH /api/card-statements/transactions/:id/category
- * Update category for a single transaction
  */
-router.patch('/transactions/:id/category', (req, res) => {
+router.patch('/transactions/:id/category', async (req, res) => {
     try {
         const { category } = req.body;
         if (!category) {
             return res.status(400).json({ erro: 'Categoria não informada' });
         }
-        repo.updateTransactionCategory(req.params.id, category, 'manual');
+        await repo.updateTransactionCategory(req.params.id, category, 'manual');
         res.json({ ok: true });
     } catch (error) {
         logger.error(`❌ Erro ao atualizar categoria: ${error.message}`);
@@ -240,21 +233,19 @@ router.patch('/transactions/:id/category', (req, res) => {
 
 /**
  * PATCH /api/card-statements/transactions/:id/reconciled
- * Toggle reconciled status for a single transaction
  */
-router.patch('/transactions/:id/reconciled', (req, res) => {
+router.patch('/transactions/:id/reconciled', async (req, res) => {
     try {
         const { reconciled } = req.body;
         if (reconciled === undefined) {
             return res.status(400).json({ erro: 'Campo reconciled não informado' });
         }
-        repo.setTransactionReconciled(req.params.id, reconciled);
+        await repo.setTransactionReconciled(req.params.id, reconciled);
 
         // Update parent statement counts
-        const db = require('../../database/connection').getDb();
-        const row = db.prepare('SELECT statement_id FROM card_transactions WHERE id = ?').get(req.params.id);
-        if (row) {
-            repo.updateStatementCounts(row.statement_id);
+        const { rows } = await query('SELECT statement_id FROM card_transactions WHERE id = $1', [req.params.id]);
+        if (rows[0]) {
+            await repo.updateStatementCounts(rows[0].statement_id);
         }
 
         res.json({ ok: true });
@@ -266,18 +257,16 @@ router.patch('/transactions/:id/reconciled', (req, res) => {
 
 /**
  * POST /api/card-statements/:id/auto-classify
- * Re-run expense classifier on unclassified transactions for a statement
  */
-router.post('/:id/auto-classify', (req, res) => {
+router.post('/:id/auto-classify', async (req, res) => {
     try {
-        const statement = repo.getStatementById(req.params.id);
+        const statement = await repo.getStatementById(req.params.id);
         if (!statement) {
             return res.status(404).json({ erro: 'Fatura não encontrada' });
         }
 
-        const transactions = repo.getTransactions(statement.id);
+        const transactions = await repo.getTransactions(statement.id);
 
-        // Filter unclassified transactions
         const unclassified = transactions.filter(t =>
             !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO')
         );
@@ -286,7 +275,6 @@ router.post('/:id/auto-classify', (req, res) => {
             return res.json({ classified: 0, message: 'Todas as transações já estão categorizadas' });
         }
 
-        // Convert to the format expected by classificarItens
         const itens = unclassified.map(t => ({
             data: t.date,
             descricao: t.description,
@@ -294,20 +282,18 @@ router.post('/:id/auto-classify', (req, res) => {
             parcela: t.installment || '',
         }));
 
-        const classified = classificarItens(itens);
+        const classified = await classificarItens(itens);
 
-        // Update only the ones that got classified
         let updatedCount = 0;
         for (let i = 0; i < classified.length; i++) {
             const item = classified[i];
             if (item.confianca !== 'manual') {
-                repo.updateTransactionCategory(unclassified[i].id, item.categoria, item.confianca);
+                await repo.updateTransactionCategory(unclassified[i].id, item.categoria, item.confianca);
                 updatedCount++;
             }
         }
 
-        // Update statement counts
-        repo.updateStatementCounts(statement.id);
+        await repo.updateStatementCounts(statement.id);
 
         logger.info(`🏷️  Auto-classificação: ${updatedCount}/${unclassified.length} transações classificadas na fatura ${statement.id}`);
 
@@ -324,18 +310,16 @@ router.post('/:id/auto-classify', (req, res) => {
 
 /**
  * POST /api/card-statements/:id/ai-classify
- * Classify unclassified transactions using Gemini AI
  */
 router.post('/:id/ai-classify', async (req, res) => {
     try {
-        const statement = repo.getStatementById(req.params.id);
+        const statement = await repo.getStatementById(req.params.id);
         if (!statement) {
             return res.status(404).json({ erro: 'Fatura não encontrada' });
         }
 
-        const transactions = repo.getTransactions(statement.id);
+        const transactions = await repo.getTransactions(statement.id);
 
-        // Filter unclassified transactions
         const unclassified = transactions.filter(t =>
             !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO')
         );
@@ -344,7 +328,6 @@ router.post('/:id/ai-classify', async (req, res) => {
             return res.json({ classified: 0, message: 'Todas as transações já estão categorizadas' });
         }
 
-        // Send to Gemini
         const itens = unclassified.map(t => ({
             descricao: t.description,
             valor: t.amount || 0,
@@ -352,12 +335,11 @@ router.post('/:id/ai-classify', async (req, res) => {
 
         const results = await classificarComIA(itens);
 
-        // Update transactions with AI results (confidence >= 70%)
         let updatedCount = 0;
         for (let i = 0; i < results.length; i++) {
             const result = results[i];
             if (result.categoria && result.confianca >= 70) {
-                repo.updateTransactionCategory(
+                await repo.updateTransactionCategory(
                     unclassified[i].id,
                     result.categoria,
                     result.confianca >= 85 ? 'alta' : 'media'
@@ -366,8 +348,7 @@ router.post('/:id/ai-classify', async (req, res) => {
             }
         }
 
-        // Update statement counts
-        repo.updateStatementCounts(statement.id);
+        await repo.updateStatementCounts(statement.id);
 
         logger.info(`🤖 AI classificou ${updatedCount}/${unclassified.length} transações na fatura ${statement.id}`);
 
@@ -389,18 +370,16 @@ router.post('/:id/ai-classify', async (req, res) => {
 
 /**
  * POST /api/card-statements/:id/send-to-olist
- * Send categorized transactions from a statement to Olist/Tiny ERP as contas a pagar.
  */
 router.post('/:id/send-to-olist', async (req, res) => {
     try {
-        const statement = repo.getStatementById(req.params.id);
+        const statement = await repo.getStatementById(req.params.id);
         if (!statement) {
             return res.status(404).json({ erro: 'Fatura não encontrada' });
         }
 
-        const transactions = repo.getTransactions(statement.id);
+        const transactions = await repo.getTransactions(statement.id);
 
-        // Filter only categorized transactions — skip uncategorized
         const toSend = transactions.filter(t =>
             t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO')
         );
@@ -412,8 +391,7 @@ router.post('/:id/send-to-olist', async (req, res) => {
             });
         }
 
-        // Get card config from SQLite
-        const cardInfo = cardRulesRepo.getCardAccountByName(statement.card_name);
+        const cardInfo = await cardRulesRepo.getCardAccountByName(statement.card_name);
         if (!cardInfo) {
             return res.status(400).json({
                 erro: `Cartão "${statement.card_name}" não encontrado nas regras de configuração.`,
@@ -422,18 +400,14 @@ router.post('/:id/send-to-olist', async (req, res) => {
 
         const fornecedor = cardInfo.fornecedor || statement.card_name;
 
-        // Build vencimento in DD/MM/YYYY from statement_date (YYYY-MM-DD or DD/MM/YYYY)
         let vencimento = statement.statement_date || '';
         if (vencimento.includes('-')) {
             const [y, m, d] = vencimento.split('-');
             vencimento = `${d}/${m}/${y}`;
         }
 
-        // Build competencia MM/YYYY from vencimento
         const vParts = vencimento.split('/');
         const competencia = vParts.length === 3 ? `${vParts[1]}/${vParts[2]}` : '';
-
-        // nro_documento vazio conforme configuração
 
         logger.info(`📤 Enviando fatura ${statement.id} ao Olist: ${toSend.length} categorizadas de ${transactions.length} — ${statement.card_name} (${skipped} puladas)`);
         logger.info(`   Fornecedor: ${fornecedor} | Vencimento: ${vencimento} | Competência: ${competencia}`);
@@ -447,7 +421,6 @@ router.post('/:id/send-to-olist', async (req, res) => {
             const t = toSend[i];
             const desc = `${(t.description || '').replace(/[\r\n]+/g, ' ').trim()}${t.installment ? ` (${t.installment})` : ''}`;
 
-            // Build data_emissao from transaction date
             let dataEmissao = t.date || vencimento;
             if (dataEmissao.includes('-')) {
                 const [y, m, d] = dataEmissao.split('-');
@@ -470,14 +443,13 @@ router.post('/:id/send-to-olist', async (req, res) => {
 
             if (resultado.sucesso) {
                 enviados++;
-                repo.markTransactionSent(t.id, resultado.id);
+                await repo.markTransactionSent(t.id, resultado.id);
                 detalhes.push({ id: t.id, description: t.description, status: 'ok', id_olist: resultado.id });
             } else {
                 erros++;
                 detalhes.push({ id: t.id, description: t.description, status: 'erro', erro: resultado.erro });
             }
 
-            // Rate limiting between API calls
             if (i < toSend.length - 1) {
                 await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
             }
@@ -497,14 +469,13 @@ router.post('/:id/send-to-olist', async (req, res) => {
         res.status(500).json({ erro: error.message });
     }
 });
+
 /**
  * POST /api/card-statements/:id/send-selected-to-olist
- * Send only selected transactions (by ID) to Olist/Tiny ERP as contas a pagar.
- * Body: { transaction_ids: number[] }
  */
 router.post('/:id/send-selected-to-olist', async (req, res) => {
     try {
-        const statement = repo.getStatementById(req.params.id);
+        const statement = await repo.getStatementById(req.params.id);
         if (!statement) {
             return res.status(404).json({ erro: 'Fatura não encontrada' });
         }
@@ -514,7 +485,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
             return res.status(400).json({ erro: 'Nenhuma transação selecionada' });
         }
 
-        const allTransactions = repo.getTransactions(statement.id);
+        const allTransactions = await repo.getTransactions(statement.id);
         const toSend = allTransactions.filter(t =>
             transaction_ids.includes(t.id) &&
             t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO')
@@ -524,7 +495,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
             return res.status(400).json({ erro: 'Nenhuma transação categorizada entre as selecionadas.' });
         }
 
-        const cardInfo = cardRulesRepo.getCardAccountByName(statement.card_name);
+        const cardInfo = await cardRulesRepo.getCardAccountByName(statement.card_name);
         if (!cardInfo) {
             return res.status(400).json({ erro: `Cartão "${statement.card_name}" não encontrado nas regras.` });
         }
@@ -573,7 +544,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
 
             if (resultado.sucesso) {
                 enviados++;
-                repo.markTransactionSent(t.id, resultado.id);
+                await repo.markTransactionSent(t.id, resultado.id);
                 detalhes.push({ id: t.id, description: t.description, status: 'ok', id_olist: resultado.id });
             } else {
                 erros++;
@@ -601,4 +572,3 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
 });
 
 module.exports = router;
-

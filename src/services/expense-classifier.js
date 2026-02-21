@@ -20,11 +20,11 @@ try {
 // ─── Fallback: caminho do JSON legado ─────────
 const learnedPath = path.join(__dirname, '../../config/learned-mappings.json');
 
-function carregarMapeamentos() {
-    // Tentar primeiro pelo repositório SQLite
+async function carregarMapeamentos() {
+    // Tentar primeiro pelo repositório PostgreSQL
     if (learnedMappingsRepo) {
         try {
-            return learnedMappingsRepo.getAll();
+            return await learnedMappingsRepo.getAll();
         } catch (e) {
             logger.warn(`⚠️ Fallback para JSON: ${e.message}`);
         }
@@ -40,15 +40,15 @@ function carregarMapeamentos() {
     return {};
 }
 
-function salvarMapeamento(descricao, categoria) {
+async function salvarMapeamento(descricao, categoria) {
     const key = normalizarDescricao(descricao);
 
-    // Salvar no SQLite (principal)
+    // Salvar no PostgreSQL (principal)
     if (learnedMappingsRepo) {
         try {
-            learnedMappingsRepo.salvar(key, categoria);
+            await learnedMappingsRepo.salvar(key, categoria);
         } catch (e) {
-            logger.warn(`⚠️ Erro SQLite, fallback JSON: ${e.message}`);
+            logger.warn(`⚠️ Erro PostgreSQL, fallback JSON: ${e.message}`);
         }
     }
 
@@ -61,7 +61,7 @@ function salvarMapeamento(descricao, categoria) {
         mappings[key] = categoria;
         fs.writeFileSync(learnedPath, JSON.stringify(mappings, null, 2), 'utf-8');
     } catch (e) {
-        // Não-fatal: SQLite é a fonte de verdade
+        // Não-fatal: PostgreSQL é a fonte de verdade
     }
 
     return true;
@@ -88,9 +88,9 @@ function normalizarDescricao(desc) {
  * @param {Array<{ data, descricao, valor, parcela }>} itens
  * @returns {Array<{ ...item, categoria, confianca, regra_match, fonte }>}
  */
-function classificarItens(itens) {
+async function classificarItens(itens) {
     const regras = config.regras_classificacao || [];
-    const mappings = carregarMapeamentos();
+    const mappings = await carregarMapeamentos();
 
     // Compila as regras em regex
     const regrasCompiladas = regras.map(r => ({

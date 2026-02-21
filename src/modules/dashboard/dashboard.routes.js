@@ -1,159 +1,82 @@
 /**
- * Routes: Dashboard Stats
- * Aggregated data for the Dashboard page: KPIs, chart data, and alerts.
+ * Dashboard Routes — Estatísticas e KPIs
  */
 const express = require('express');
 const router = express.Router();
-const { getDb } = require('../../database/connection');
+const { query } = require('../../database/connection');
 const logger = require('../../utils/logger');
 
-/**
- * GET /api/dashboard/stats
- * Returns all data needed by the Dashboard in a single request.
- */
-router.get('/stats', (req, res) => {
+// ─── GET /stats — Dashboard Statistics ───────────────────
+router.get('/stats', async (req, res) => {
     try {
-        const db = getDb();
+        // Total de faturas
+        const stmtResult = await query('SELECT COUNT(*) as total, COALESCE(SUM(total_amount), 0) as total_amount FROM card_statements');
+        const totalStatements = parseInt(stmtResult.rows[0].total);
+        const totalAmount = parseFloat(stmtResult.rows[0].total_amount);
 
-        // ─── KPIs ─────────────────────────────────────
-        const totals = db.prepare(`
-            SELECT 
-                COUNT(*) as total_statements,
-                COALESCE(SUM(total_transactions), 0) as total_transactions,
-                COALESCE(SUM(categorized_count), 0) as total_categorized,
-                COALESCE(SUM(total_transactions - COALESCE(categorized_count, 0)), 0) as total_pending,
-                COALESCE(SUM(total_amount), 0) as total_amount
-            FROM card_statements
-        `).get();
+        // Transações
+        const txResult = await query('SELECT COUNT(*) as total FROM card_transactions');
+        const totalTransactions = parseInt(txResult.rows[0].total);
 
-        const distinctCards = db.prepare(
-            'SELECT COUNT(DISTINCT card_name) as count FROM card_statements'
-        ).get();
+        // Categorizadas
+        const catResult = await query(`
+            SELECT COUNT(*) as total FROM card_transactions
+            WHERE category IS NOT NULL AND TRIM(category) != '' AND category NOT LIKE '%NÃO CLASSIFICADO%'
+        `);
+        const categorizedCount = parseInt(catResult.rows[0].total);
 
-        const pctCategorized = totals.total_transactions > 0
-            ? Math.round((totals.total_categorized / totals.total_transactions) * 100)
-            : 0;
+        // Conciliadas
+        const recResult = await query('SELECT COUNT(*) as total FROM card_transactions WHERE reconciled = 1');
+        const reconciledCount = parseInt(recResult.rows[0].total);
 
-        // ─── Chart: Gastos por Mês ────────────────────
-        // Last 6 months, grouped by month and category
-        const monthlyByCategory = db.prepare(`
-            SELECT 
-                strftime('%Y-%m', t.date) as month,
-                t.category,
-                COALESCE(SUM(t.amount), 0) as total
+        // Gastos por mês (últimos 6 meses)
+        const monthlyResult = await query(`
+            SELECT
+                SUBSTRING(t.date FROM 1 FOR 7) as month,
+                COALESCE(SUM(ABS(t.amount)), 0) as total
             FROM card_transactions t
-            JOIN card_statements s ON t.statement_id = s.id
-            WHERE t.date >= date('now', '-6 months')
-              AND t.category IS NOT NULL 
-              AND TRIM(t.category) != ''
-              AND t.category NOT LIKE '%NÃO CLASSIFICADO%'
-            GROUP BY month, t.category
+            JOIN card_statements s ON s.id = t.statement_id
+            WHERE t.date >= TO_CHAR(NOW() - INTERVAL '6 months', 'YYYY-MM-DD')
+            GROUP BY SUBSTRING(t.date FROM 1 FOR 7)
             ORDER BY month ASC
-        `).all();
+        `);
 
-        // Transform into chart-friendly format
-        const months = [...new Set(monthlyByCategory.map(r => r.month))].sort();
-        const categories = [...new Set(monthlyByCategory.map(r => r.category))].sort();
-
-        const chartMonthly = {
-            labels: months.map(m => {
-                const [y, mo] = m.split('-');
-                return `${mo}/${y.slice(2)}`;
-            }),
-            categories: categories.slice(0, 8), // Top 8 categories for readability
-            datasets: categories.slice(0, 8).map(cat => ({
-                label: cat,
-                data: months.map(m => {
-                    const row = monthlyByCategory.find(r => r.month === m && r.category === cat);
-                    return row ? Math.round(row.total * 100) / 100 : 0;
-                }),
-            })),
-        };
-
-        // ─── Chart: Distribuição por Cartão ───────────
-        const byCard = db.prepare(`
-            SELECT 
-                card_name,
-                COALESCE(SUM(total_amount), 0) as total,
-                COUNT(*) as count
-            FROM card_statements
-            GROUP BY card_name
+        // Top categorias
+        const topCatsResult = await query(`
+            SELECT category, COUNT(*) as count, COALESCE(SUM(ABS(amount)), 0) as total
+            FROM card_transactions
+            WHERE category IS NOT NULL AND TRIM(category) != '' AND category NOT LIKE '%NÃO CLASSIFICADO%'
+            GROUP BY category
             ORDER BY total DESC
-        `).all();
+            LIMIT 10
+        `);
 
-        const chartByCard = {
-            labels: byCard.map(r => r.card_name),
-            data: byCard.map(r => Math.round(r.total * 100) / 100),
-            counts: byCard.map(r => r.count),
-        };
-
-        // ─── Alerts: Faturas Pendentes ────────────────
-        const pendingStatements = db.prepare(`
-            SELECT id, filename, card_name, total_transactions, 
-                   COALESCE(categorized_count, 0) as categorized_count,
-                   total_transactions - COALESCE(categorized_count, 0) as pending_count
-            FROM card_statements
-            WHERE total_transactions > COALESCE(categorized_count, 0)
-            ORDER BY pending_count DESC
-            LIMIT 5
-        `).all();
-
-        // ─── Recent: Últimas 5 faturas ────────────────
-        const recent = db.prepare(`
-            SELECT id, filename, card_name, financial_account, statement_date,
-                   total_transactions, COALESCE(categorized_count, 0) as categorized_count,
-                   total_amount
-            FROM card_statements
-            ORDER BY statement_date DESC, created_at DESC
-            LIMIT 5
-        `).all();
-
-        // ─── Progresso por Cartão ─────────────────────
-        const cardProgress = db.prepare(`
-            SELECT 
-                card_name,
-                SUM(total_transactions) as total_tx,
-                SUM(COALESCE(categorized_count, 0)) as categorized_tx,
-                SUM(total_amount) as total_amount,
-                COUNT(*) as statement_count
-            FROM card_statements
-            GROUP BY card_name
-            ORDER BY card_name
-        `).all();
-
-        // ─── Olist: última sincronização ──────────────
-        let lastOlistSync = null;
-        try {
-            const syncRow = db.prepare(`
-                SELECT MAX(updated_at) as last_sync FROM olist_contas_pagar
-            `).get();
-            lastOlistSync = syncRow?.last_sync || null;
-        } catch (e) {
-            // Table may not exist yet
-        }
+        // Cartões ativos
+        const cardsResult = await query('SELECT DISTINCT card_name FROM card_statements ORDER BY card_name');
 
         res.json({
-            kpis: {
-                total_statements: totals.total_statements,
-                total_transactions: totals.total_transactions,
-                total_categorized: totals.total_categorized,
-                total_pending: totals.total_pending,
-                pct_categorized: pctCategorized,
-                total_amount: totals.total_amount,
-                distinct_cards: distinctCards.count,
-                last_olist_sync: lastOlistSync,
-            },
-            charts: {
-                monthly: chartMonthly,
-                byCard: chartByCard,
-            },
-            alerts: pendingStatements,
-            recent,
-            cardProgress,
+            totalStatements,
+            totalAmount,
+            totalTransactions,
+            categorizedCount,
+            reconciledCount,
+            categorizationRate: totalTransactions > 0
+                ? ((categorizedCount / totalTransactions) * 100).toFixed(1)
+                : '0',
+            monthlySpending: monthlyResult.rows.map(r => ({
+                month: r.month,
+                total: parseFloat(r.total),
+            })),
+            topCategories: topCatsResult.rows.map(r => ({
+                category: r.category,
+                count: parseInt(r.count),
+                total: parseFloat(r.total),
+            })),
+            activeCards: cardsResult.rows.map(r => r.card_name),
         });
-    } catch (error) {
-        logger.error(`❌ Erro no dashboard stats: ${error.message}`);
-        res.status(500).json({ erro: error.message });
+    } catch (err) {
+        logger.error('Erro ao carregar dashboard:', err);
+        res.status(500).json({ error: 'Erro ao carregar estatísticas do dashboard' });
     }
 });
 

@@ -145,7 +145,7 @@ a:hover {
     transition: margin var(--transition-normal);
 }
 
-/* ─── Sidebar ──────────────────────────────────────── */
+/* ─── Sidebar (Google Drive Style) ─────────────────── */
 .erp-sidebar {
     position: fixed;
     top: 0;
@@ -159,19 +159,37 @@ a:hover {
     z-index: 100;
     transition: transform var(--transition-normal), background var(--transition-normal);
     overflow-y: auto;
+    overflow-x: hidden;
 }
 
+/* Scrollbar styling */
+.erp-sidebar::-webkit-scrollbar {
+    width: 4px;
+}
+
+.erp-sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.erp-sidebar::-webkit-scrollbar-thumb {
+    background: var(--border-default);
+    border-radius: 4px;
+}
+
+.erp-sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--border-strong);
+}
+
+/* Brand / Logo */
 .sidebar-brand {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    padding: 20px 20px 16px;
-    border-bottom: 1px solid var(--border-muted);
+    align-items: center;
+    gap: 10px;
+    padding: 16px 16px 8px;
 }
 
 .sidebar-brand .sidebar-logo {
-    width: 120px;
+    width: 110px;
     height: auto;
     filter: invert(1);
     transition: filter var(--transition-fast);
@@ -187,18 +205,78 @@ a:hover {
     font-weight: 500;
 }
 
+/* Action button (Google Drive "+ New" style) */
+.sidebar-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 14px 4px;
+    padding: 0 24px 0 16px;
+    height: 56px;
+    background: var(--bg-card);
+    border: none;
+    border-radius: 16px;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: var(--shadow-md), 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: all var(--transition-fast);
+    text-decoration: none;
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-action-btn:hover {
+    box-shadow: var(--shadow-lg), 0 1px 4px rgba(0, 94, 252, 0.15);
+    background: var(--bg-card-alt);
+}
+
+.sidebar-action-btn:active {
+    transform: scale(0.98);
+}
+
+.sidebar-action-btn .action-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.sidebar-action-btn .action-icon svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 /* Sidebar navigation */
 .sidebar-nav {
     flex: 1;
-    padding: 12px 0;
+    padding: 8px 0 0;
 }
 
 .nav-group {
     padding: 0 12px;
-    margin-bottom: 8px;
+    margin-bottom: 2px;
 }
 
+.nav-group+.nav-group {
+    border-top: 1px solid var(--border-muted);
+    margin-top: 8px;
+    padding-top: 8px;
+}
+
+/* Hidden by default — only show if explicitly needed */
 .nav-group-label {
+    display: none;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
@@ -210,15 +288,17 @@ a:hover {
 .nav-item {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    border-radius: var(--radius-md);
-    font-size: 13px;
+    gap: 12px;
+    padding: 0 12px;
+    height: 32px;
+    border-radius: var(--radius-pill);
+    font-size: 14px;
     font-weight: 500;
     color: var(--text-secondary);
     text-decoration: none;
     transition: all var(--transition-fast);
-    margin-bottom: 2px;
+    margin-bottom: 1px;
+    position: relative;
 }
 
 .nav-item:hover {
@@ -227,24 +307,96 @@ a:hover {
 }
 
 .nav-item.active {
-    background: var(--bg-active);
+    background: var(--blue-light);
     color: var(--blue);
     font-weight: 600;
 }
 
-.nav-item .icon {
+[data-theme="light"] .nav-item.active {
+    background: #c2e7ff;
+    color: #001d35;
+}
+
+.nav-item .nav-icon {
     width: 20px;
     height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 14px;
-    opacity: 0.7;
     flex-shrink: 0;
+    opacity: 0.65;
 }
 
-.nav-item.active .icon {
+.nav-item .nav-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.nav-item.active .nav-icon {
     opacity: 1;
+}
+
+.nav-item .nav-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Expand arrow for items with children */
+.nav-item .expand-arrow {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    opacity: 0.4;
+    transition: transform 0.2s ease, opacity 0.15s ease;
+    margin-left: -4px;
+    margin-right: -2px;
+}
+
+.nav-item .expand-arrow svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.nav-item:hover .expand-arrow {
+    opacity: 0.7;
+}
+
+.nav-item.expanded .expand-arrow {
+    transform: rotate(90deg);
+    opacity: 0.7;
+}
+
+/* Sub-items container */
+.nav-sub-items {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.25s ease;
+    padding-left: 16px;
+}
+
+.nav-sub-items.open {
+    max-height: 200px;
+}
+
+.nav-sub-items .nav-item {
+    height: 30px;
+    font-size: 13px;
+    padding-left: 20px;
 }
 
 .nav-item.disabled {
@@ -253,9 +405,22 @@ a:hover {
     pointer-events: none;
 }
 
+/* Sidebar info section (bottom, before footer) */
+.sidebar-info {
+    padding: 12px 20px;
+    font-size: 11px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-muted);
+}
+
+.sidebar-info .info-label {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
 /* Sidebar footer (theme toggle area) */
 .sidebar-footer {
-    padding: 16px 20px;
+    padding: 12px 16px;
     border-top: 1px solid var(--border-muted);
 }
 

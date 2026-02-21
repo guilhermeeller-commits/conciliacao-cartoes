@@ -71,10 +71,10 @@ async function incluirContaPagar(dados) {
 
         if (existing.length > 0) {
             const record = existing[0];
-            // Já enviado com sucesso — retornar ID existente
+            // Já enviado com sucesso — bloquear reenvio, mostrar erro
             if (record.olist_id && record.status === 'sent') {
-                logger.info(`🔄 Transação duplicada detectada (idempotency_key=${idempotencyKey.slice(0, 12)}...), retornando ID existente: ${record.olist_id}`);
-                return { sucesso: true, id: record.olist_id, erro: null, duplicata: true };
+                logger.warn(`🔄 Transação duplicada detectada (idempotency_key=${idempotencyKey.slice(0, 12)}...), bloqueando reenvio. Use o Validador de Envios para limpar.`);
+                return { sucesso: false, id: record.olist_id, erro: `Duplicata — já enviada ao Olist (ID: ${record.olist_id}). Use o Validador de Envios em Configurações para limpar e reenviar.`, duplicata: true };
             }
             // Envio anterior falhou — permitir retry (atualizar status para pending)
             if (record.status === 'failed') {
@@ -148,6 +148,15 @@ async function incluirContaPagar(dados) {
                 logger.warn(`⚠️ Erro ao atualizar sent_transactions: ${dbErr.message}`);
             }
 
+            // Setar forma de pagamento via alterar (incluir ignora esse campo)
+            if (id && dados.forma_pagamento) {
+                try {
+                    await alterarFormaPagamento(id, dados.forma_pagamento);
+                } catch (fpErr) {
+                    logger.warn(`⚠️ Erro ao setar forma de pagamento: ${fpErr.message}`);
+                }
+            }
+
             logger.info(`✅ Conta incluída: "${dados.descricao}" — R$ ${dados.valor.toFixed(2)} → ${dados.categoria} (ID: ${id})`);
             return { sucesso: true, id, erro: null, duplicata: false };
         }
@@ -184,6 +193,54 @@ async function incluirContaPagar(dados) {
 
         logger.error(`❌ Erro HTTP ao incluir conta: ${error.message}`);
         return { sucesso: false, id: null, erro: error.message, duplicata: false };
+    }
+}
+
+/**
+ * Altera a forma de pagamento de uma conta a pagar no Tiny ERP.
+ * A API V2 ignora forma_pagamento na inclusão, então isso é necessário como segundo passo.
+ */
+async function alterarFormaPagamento(id, formaPagamento) {
+    const token = process.env.TINY_API_TOKEN;
+    if (!token) throw new Error('TINY_API_TOKEN não configurado');
+
+    const conta = {
+        id,
+        forma_pagamento: formaPagamento,
+    };
+
+    try {
+        const params = new URLSearchParams();
+        params.append('token', token);
+        params.append('formato', 'json');
+        params.append('conta', JSON.stringify({ conta }));
+
+        logger.info(`📋 Alterando forma de pagamento da conta ${id} para: ${formaPagamento}`);
+
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
+            `${TINY_API_BASE}/conta.pagar.alterar.php`,
+            params.toString(),
+            {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                timeout: 30000,
+                signal,
+            }
+        ));
+
+        if (resposta.retorno?.status === 'OK') {
+            logger.info(`✅ Forma de pagamento atualizada para conta ${id}`);
+            return { sucesso: true };
+        }
+
+        const erros = resposta.retorno?.erros || [];
+        const msgErro = Array.isArray(erros)
+            ? erros.map(e => e.erro || e).join('; ')
+            : JSON.stringify(erros);
+        logger.warn(`⚠️ Erro ao alterar forma de pagamento: ${msgErro}`);
+        return { sucesso: false, erro: msgErro };
+    } catch (error) {
+        logger.error(`❌ Erro HTTP ao alterar forma de pagamento: ${error.message}`);
+        return { sucesso: false, erro: error.message };
     }
 }
 
@@ -575,6 +632,7 @@ async function estornarBaixa(id) {
 
 module.exports = {
     incluirContaPagar,
+    alterarFormaPagamento,
     baixarContaPagar,
     enviarLoteFatura,
     gerarRelatorioAuditoria,

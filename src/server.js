@@ -1,5 +1,14 @@
 require('dotenv').config();
 
+// ─── Fallback: CLOUD_SQL_URL → DATABASE_URL ────────────────
+// Railway pode reservar o nome DATABASE_URL. Aceitamos ambos.
+if (process.env.CLOUD_SQL_URL && !process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = process.env.CLOUD_SQL_URL;
+}
+if (process.env.TINY_ERP_TOKEN && !process.env.TINY_API_TOKEN) {
+    process.env.TINY_API_TOKEN = process.env.TINY_ERP_TOKEN;
+}
+
 // ═══════════════════════════════════════════════════════════
 // Validação de variáveis de ambiente obrigatórias (item 1.4)
 // DEVE rodar ANTES de qualquer import que dependa de env vars

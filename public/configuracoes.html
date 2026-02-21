@@ -774,111 +774,131 @@
                 </div>
             </div>
 
-            <!-- Tab 7: Reports -->
-            <div class="tab-panel" id="panel-reports">
-                <div class="settings-card">
-                    <h3>📄 Relatório Mensal de Faturas</h3>
-                    <p>Exporte um PDF com o resumo de todas as faturas de cartão do mês selecionado.</p>
-                    <div class="report-controls">
-                        <input type="month" id="reportMonth" class="report-month-input">
-                        <button class="btn-save" onclick="downloadFaturasReport()">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                                <line x1="16" y1="13" x2="8" y2="13" />
-                                <line x1="16" y1="17" x2="8" y2="17" />
-                                <polyline points="10 9 9 9 8 9" />
-                            </svg>
-                            Gerar PDF Faturas
-                        </button>
-                    </div>
-                </div>
+            <!-- Validate Sent Section -->
+            <div class="settings-card">
+                <h3>🔍 Validador de Envios ao Olist</h3>
+                <p>Verifica se as transações enviadas ainda existem no Tiny ERP. Se uma conta foi excluída no Tiny,
+                    o registro de idempotência é limpo, permitindo reenvio.</p>
 
-                <div class="settings-card">
-                    <h3>📊 Relatório do Repositório</h3>
-                    <p>Exporte um PDF com o resumo dos dados sincronizados do Olist/Tiny ERP, incluindo top categorias e
-                        fornecedores.</p>
-                    <div class="report-controls">
-                        <button class="btn-save" onclick="downloadRepoReport()">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-                                <polyline points="14 2 14 8 20 8" />
-                                <line x1="16" y1="13" x2="8" y2="13" />
-                                <line x1="16" y1="17" x2="8" y2="17" />
-                                <polyline points="10 9 9 9 8 9" />
-                            </svg>
-                            Gerar PDF Repositório
-                        </button>
-                    </div>
+                <div id="validateResult" style="display:none; margin-bottom: 16px;"></div>
+
+                <div class="btn-row">
+                    <button class="btn-save" id="btnValidateSent" onclick="validateSentTransactions()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="9 11 12 14 22 4" />
+                            <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                        </svg>
+                        Validar Transações Enviadas
+                    </button>
+                </div>
+            </div>
+    </div>
+
+    <!-- Tab 7: Reports -->
+    <div class="tab-panel" id="panel-reports">
+        <div class="settings-card">
+            <h3>📄 Relatório Mensal de Faturas</h3>
+            <p>Exporte um PDF com o resumo de todas as faturas de cartão do mês selecionado.</p>
+            <div class="report-controls">
+                <input type="month" id="reportMonth" class="report-month-input">
+                <button class="btn-save" onclick="downloadFaturasReport()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    Gerar PDF Faturas
+                </button>
+            </div>
+        </div>
+
+        <div class="settings-card">
+            <h3>📊 Relatório do Repositório</h3>
+            <p>Exporte um PDF com o resumo dos dados sincronizados do Olist/Tiny ERP, incluindo top categorias e
+                fornecedores.</p>
+            <div class="report-controls">
+                <button class="btn-save" onclick="downloadRepoReport()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                        <line x1="16" y1="13" x2="8" y2="13" />
+                        <line x1="16" y1="17" x2="8" y2="17" />
+                        <polyline points="10 9 9 9 8 9" />
+                    </svg>
+                    Gerar PDF Repositório
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 5: Plano de Contas -->
+    <div class="tab-panel" id="panel-plano">
+        <div class="settings-card">
+            <h3>Plano de Contas Olist</h3>
+            <p>Visualização do plano de contas importado do ERP. Use a busca para encontrar contas específicas.
+            </p>
+            <div class="tree-search">
+                <input type="text" id="planoSearch" placeholder="Buscar conta..." oninput="onPlanoSearch()">
+            </div>
+            <div id="planoTree">
+                <div class="settings-empty">Carregando plano de contas...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 6: Backup -->
+    <div class="tab-panel" id="panel-backup">
+        <div class="settings-card">
+            <h3>Backup do Banco de Dados</h3>
+            <p>Faça o download de uma cópia de segurança do banco SQLite. O backup inclui todos os dados do
+                sistema.</p>
+
+            <div class="backup-info-card" id="backupInfoCard">
+                <div class="info-icon">🗄️</div>
+                <div class="info-text">
+                    <div class="label">Tamanho do banco</div>
+                    <div class="value" id="dbSize">Carregando...</div>
+                </div>
+                <div class="info-text">
+                    <div class="label">Última modificação</div>
+                    <div class="value" id="dbLastModified">—</div>
                 </div>
             </div>
 
-            <!-- Tab 5: Plano de Contas -->
-            <div class="tab-panel" id="panel-plano">
-                <div class="settings-card">
-                    <h3>Plano de Contas Olist</h3>
-                    <p>Visualização do plano de contas importado do ERP. Use a busca para encontrar contas específicas.
-                    </p>
-                    <div class="tree-search">
-                        <input type="text" id="planoSearch" placeholder="Buscar conta..." oninput="onPlanoSearch()">
-                    </div>
-                    <div id="planoTree">
-                        <div class="settings-empty">Carregando plano de contas...</div>
-                    </div>
-                </div>
+            <div class="btn-row">
+                <button class="btn-save" onclick="downloadBackup()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Baixar Backup
+                </button>
             </div>
+        </div>
 
-            <!-- Tab 6: Backup -->
-            <div class="tab-panel" id="panel-backup">
-                <div class="settings-card">
-                    <h3>Backup do Banco de Dados</h3>
-                    <p>Faça o download de uma cópia de segurança do banco SQLite. O backup inclui todos os dados do
-                        sistema.</p>
+        <div class="settings-card">
+            <h3>Restaurar Banco de Dados</h3>
+            <p>Envie um arquivo <code>.db</code> para substituir o banco atual. O banco atual será salvo como
+                <code>.bak</code> antes da restauração.
+            </p>
 
-                    <div class="backup-info-card" id="backupInfoCard">
-                        <div class="info-icon">🗄️</div>
-                        <div class="info-text">
-                            <div class="label">Tamanho do banco</div>
-                            <div class="value" id="dbSize">Carregando...</div>
-                        </div>
-                        <div class="info-text">
-                            <div class="label">Última modificação</div>
-                            <div class="value" id="dbLastModified">—</div>
-                        </div>
-                    </div>
-
-                    <div class="btn-row">
-                        <button class="btn-save" onclick="downloadBackup()">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                                <polyline points="7 10 12 15 17 10" />
-                                <line x1="12" y1="15" x2="12" y2="3" />
-                            </svg>
-                            Baixar Backup
-                        </button>
-                    </div>
-                </div>
-
-                <div class="settings-card">
-                    <h3>Restaurar Banco de Dados</h3>
-                    <p>Envie um arquivo <code>.db</code> para substituir o banco atual. O banco atual será salvo como
-                        <code>.bak</code> antes da restauração.
-                    </p>
-
-                    <div class="restore-zone" id="restoreZone"
-                        onclick="document.getElementById('restoreInput').click()">
-                        <div class="zone-icon">📤</div>
-                        <div class="zone-title">Clique para selecionar o arquivo .db</div>
-                        <div class="zone-desc">Ou arraste e solte aqui</div>
-                    </div>
-                    <input type="file" id="restoreInput" accept=".db" style="display:none"
-                        onchange="onRestoreFileSelected(event)">
-                </div>
+            <div class="restore-zone" id="restoreZone" onclick="document.getElementById('restoreInput').click()">
+                <div class="zone-icon">📤</div>
+                <div class="zone-title">Clique para selecionar o arquivo .db</div>
+                <div class="zone-desc">Ou arraste e solte aqui</div>
             </div>
-        </main>
+            <input type="file" id="restoreInput" accept=".db" style="display:none"
+                onchange="onRestoreFileSelected(event)">
+        </div>
+    </div>
+    </main>
     </div>
 
     <!-- Restore Confirmation Modal -->
@@ -1638,6 +1658,71 @@
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
+        }
+        // ─── Validate Sent Transactions ────────────────
+        async function validateSentTransactions() {
+            const btn = document.getElementById('btnValidateSent');
+            const resultDiv = document.getElementById('validateResult');
+
+            btn.disabled = true;
+            btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> Validando... (pode levar alguns segundos)`;
+
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<div class="connection-status idle"><span class="status-dot-lg gray"></span><span>Verificando transações no Tiny ERP...</span></div>';
+
+            try {
+                const res = await fetch('/api/settings/validate-sent', { method: 'POST' });
+                const data = await res.json();
+
+                if (!data.ok) {
+                    resultDiv.innerHTML = `<div class="connection-status error"><span class="status-dot-lg red"></span><span>${data.erro || 'Erro desconhecido'}</span></div>`;
+                    return;
+                }
+
+                const statusClass = data.removed > 0 ? 'success' : 'idle';
+                const statusDot = data.removed > 0 ? 'green' : 'gray';
+
+                let html = `
+                    <div class="connection-status ${statusClass}">
+                        <span class="status-dot-lg ${statusDot}"></span>
+                        <span>${data.message}</span>
+                    </div>
+                    <div style="display:flex; gap:16px; margin-top:12px; flex-wrap:wrap;">
+                        <div class="backup-info-card" style="flex:1; min-width:120px;">
+                            <div class="info-text"><div class="label">Total</div><div class="value">${data.total}</div></div>
+                        </div>
+                        <div class="backup-info-card" style="flex:1; min-width:120px;">
+                            <div class="info-text"><div class="label">Válidas</div><div class="value" style="color:var(--green)">${data.valid}</div></div>
+                        </div>
+                        <div class="backup-info-card" style="flex:1; min-width:120px;">
+                            <div class="info-text"><div class="label">Removidas</div><div class="value" style="color:${data.removed > 0 ? 'var(--green)' : 'var(--text-muted)'}">${data.removed}</div></div>
+                        </div>
+                    </div>
+                `;
+
+                if (data.details && data.details.length > 0) {
+                    const removedItems = data.details.filter(d => d.status === 'removed');
+                    if (removedItems.length > 0) {
+                        html += `<div style="margin-top:12px; font-size:12px; color:var(--text-secondary);">
+                            <strong>Transações limpas (prontas para reenvio):</strong>
+                            <ul style="margin:8px 0 0 16px; padding:0;">
+                                ${removedItems.map(d => `<li>${escapeHtml(d.description || '—')} (Olist ID: ${d.olist_id})</li>`).join('')}
+                            </ul>
+                        </div>`;
+                    }
+                }
+
+                resultDiv.innerHTML = html;
+
+                if (data.removed > 0) {
+                    showToast(`${data.removed} transação(ões) limpas — prontas para reenvio!`, 'success');
+                }
+            } catch (e) {
+                resultDiv.innerHTML = `<div class="connection-status error"><span class="status-dot-lg red"></span><span>Erro: ${e.message}</span></div>`;
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg> Validar Transações Enviadas`;
+            }
         }
     </script>
 </body>

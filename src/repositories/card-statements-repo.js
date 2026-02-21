@@ -40,7 +40,9 @@ async function findDuplicateStatement(card_name, statement_date) {
 }
 
 async function listStatements({ card, dateFrom, dateTo, search } = {}) {
-    let sql = 'SELECT * FROM card_statements WHERE 1=1';
+    let sql = `SELECT cs.*,
+        COALESCE((SELECT COUNT(*) FROM card_transactions ct WHERE ct.statement_id = cs.id AND ct.sent_to_olist = 1), 0) as sent_count
+        FROM card_statements cs WHERE 1=1`;
     const params = [];
     let paramIdx = 1;
 

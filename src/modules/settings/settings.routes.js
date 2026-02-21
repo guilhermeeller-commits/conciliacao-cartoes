@@ -283,6 +283,105 @@ router.put('/olist-token', async (req, res) => {
     }
 });
 
+// ─── Validate Sent Transactions ────────────────
+
+const { obterContaPagar } = require('../../services/olist-financial');
+
+router.post('/validate-sent', async (req, res) => {
+    try {
+        const { rows: sentRecords } = await query(
+            "SELECT id, olist_id, card_name, description, amount, created_at FROM sent_transactions WHERE status = 'sent' AND olist_id IS NOT NULL ORDER BY created_at DESC"
+        );
+
+        if (sentRecords.length === 0) {
+            return res.json({
+                ok: true,
+                total: 0,
+                valid: 0,
+                removed: 0,
+                message: 'Nenhuma transação enviada encontrada para validar.',
+            });
+        }
+
+        logger.info(`🔍 Validando ${sentRecords.length} transações enviadas ao Olist...`);
+
+        let valid = 0;
+        let removed = 0;
+        const details = [];
+        const RATE_LIMIT_MS = 1100; // Tiny API rate limit
+
+        for (let i = 0; i < sentRecords.length; i++) {
+            const record = sentRecords[i];
+
+            try {
+                const result = await obterContaPagar(record.olist_id);
+
+                if (result.sucesso) {
+                    valid++;
+                    details.push({
+                        id: record.id,
+                        olist_id: record.olist_id,
+                        description: record.description,
+                        status: 'valid',
+                    });
+                } else {
+                    // Conta não existe mais no Tiny — limpar registro
+                    await query(
+                        "UPDATE sent_transactions SET status = 'removed', updated_at = NOW() WHERE id = $1",
+                        [record.id]
+                    );
+
+                    // Resetar flag sent_to_olist nas card_transactions que apontam pra esse olist_id
+                    await query(
+                        "UPDATE card_transactions SET sent_to_olist = 0, olist_id = NULL WHERE olist_id = $1",
+                        [record.olist_id]
+                    );
+
+                    removed++;
+                    details.push({
+                        id: record.id,
+                        olist_id: record.olist_id,
+                        description: record.description,
+                        status: 'removed',
+                        reason: result.erro || 'Conta não encontrada no Tiny',
+                    });
+
+                    logger.info(`🗑️ Conta ${record.olist_id} não encontrada no Tiny — registro limpo`);
+                }
+            } catch (err) {
+                details.push({
+                    id: record.id,
+                    olist_id: record.olist_id,
+                    description: record.description,
+                    status: 'error',
+                    reason: err.message,
+                });
+            }
+
+            // Rate limit
+            if (i < sentRecords.length - 1) {
+                await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
+            }
+        }
+
+        logger.info(`✅ Validação concluída: ${valid} válidas, ${removed} removidas de ${sentRecords.length} total`);
+
+        res.json({
+            ok: true,
+            total: sentRecords.length,
+            valid,
+            removed,
+            details,
+            message: removed > 0
+                ? `${removed} transação(ões) não encontrada(s) no Tiny foram limpas. Agora podem ser reenviadas.`
+                : `Todas as ${valid} transações ainda existem no Tiny.`,
+        });
+    } catch (e) {
+        logger.error('Erro ao validar transações:', e);
+        res.status(500).json({ erro: 'Erro ao validar transações: ' + e.message });
+    }
+});
+
 // ─── Notifications ─────────────────────────────
 
 router.get('/notifications', async (req, res) => {

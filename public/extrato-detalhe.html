@@ -535,6 +535,9 @@
                         Categorizadas <span class="chip-count" id="chipCategorized">0</span></button>
                     <button class="tx-filter-chip" data-filter="sent" onclick="setTxFilter('sent')">🔵 Enviadas
                         <span class="chip-count" id="chipSent">0</span></button>
+                    <button class="tx-filter-chip" data-filter="duplicate" onclick="setTxFilter('duplicate')">🔴
+                        Duplicidade
+                        <span class="chip-count" id="chipDuplicate">0</span></button>
                 </div>
 
                 <!-- Transactions Table -->
@@ -651,6 +654,7 @@
         let selectedCategory = null;
         let txFilter = 'all';
         let selectedIds = new Set();
+        let duplicateIds = new Set(); // transações que deram erro de duplicata no envio
 
         const statementId = new URLSearchParams(window.location.search).get('id');
 
@@ -741,6 +745,8 @@
             document.getElementById('chipPending').textContent = pendingCount;
             document.getElementById('chipCategorized').textContent = categorizedCount;
             document.getElementById('chipSent').textContent = sentCount;
+            const duplicateCount = transactions.filter(t => duplicateIds.has(t.id)).length;
+            document.getElementById('chipDuplicate').textContent = duplicateCount;
 
             // Apply filter
             let filtered = transactions;
@@ -750,6 +756,8 @@
                 filtered = transactions.filter(t => t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO'));
             } else if (txFilter === 'sent') {
                 filtered = transactions.filter(t => t.sent_to_olist);
+            } else if (txFilter === 'duplicate') {
+                filtered = transactions.filter(t => duplicateIds.has(t.id));
             }
 
             if (filtered.length === 0) {
@@ -773,6 +781,7 @@
                 const amount = (t.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
                 const isChecked = selectedIds.has(t.id) ? 'checked' : '';
                 const sentBadge = t.sent_to_olist ? '<span style="color: var(--blue); font-size: 11px; margin-left: 6px;" title="Enviado ao Olist">✅</span>' : '';
+                const dupBadge = duplicateIds.has(t.id) ? '<span style="color: var(--red); font-size: 11px; margin-left: 6px;" title="Duplicata detectada — use o Validador de Envios">🔴 Duplicata</span>' : '';
 
                 return `
                     <tr>
@@ -786,7 +795,7 @@
                         <td>
                             <span class="cat-badge ${catClass}" onclick="openCategoryModal(${t.id}, '${escapeAttr(t.description)}', '${escapeAttr(t.category || '')}')">
                                 ${escapeHtml(catLabel)}
-                            </span>${sentBadge}
+                            </span>${sentBadge}${dupBadge}
                         </td>
                     </tr>
                 `;
@@ -1087,7 +1096,14 @@
                 if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
 
                 const stats = data.estatisticas || {};
-                showToast(data.message || `${stats.enviados || 0} transações enviadas ao Olist`);
+                const dupItems = (data.detalhes || []).filter(d => d.duplicata);
+                if (dupItems.length > 0) {
+                    dupItems.forEach(d => duplicateIds.add(d.id));
+                }
+                const msg = dupItems.length > 0
+                    ? `${stats.enviados || 0} enviadas, ${dupItems.length} duplicata(s) detectada(s).`
+                    : data.message || `${stats.enviados || 0} transações enviadas ao Olist`;
+                showToast(msg, dupItems.length > 0 ? 'error' : 'success');
                 selectedIds.clear();
                 updateSelectionBar();
                 loadStatement();
@@ -1113,7 +1129,14 @@
 
                 if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
 
-                showToast(data.message || 'Dados enviados ao Olist com sucesso!');
+                const dupItems = (data.detalhes || []).filter(d => d.duplicata);
+                if (dupItems.length > 0) {
+                    dupItems.forEach(d => duplicateIds.add(d.id));
+                }
+                const msg = dupItems.length > 0
+                    ? `${data.estatisticas?.enviados || 0} enviadas, ${dupItems.length} duplicata(s).`
+                    : data.message || 'Dados enviados ao Olist com sucesso!';
+                showToast(msg, dupItems.length > 0 ? 'error' : 'success');
                 loadStatement();
             } catch (e) {
                 showToast(e.message, 'error');

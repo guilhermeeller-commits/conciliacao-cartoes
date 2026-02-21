@@ -224,6 +224,13 @@ router.patch('/transactions/:id/category', async (req, res) => {
             return res.status(400).json({ erro: 'Categoria não informada' });
         }
         await repo.updateTransactionCategory(req.params.id, category, 'manual');
+
+        // Atualizar contadores do statement pai
+        const { rows } = await query('SELECT statement_id FROM card_transactions WHERE id = $1', [req.params.id]);
+        if (rows[0]) {
+            await repo.updateStatementCounts(rows[0].statement_id);
+        }
+
         res.json({ ok: true });
     } catch (error) {
         logger.error(`❌ Erro ao atualizar categoria: ${error.message}`);
@@ -438,7 +445,7 @@ router.post('/:id/send-to-olist', async (req, res) => {
                 data_emissao: dataEmissao,
                 competencia,
                 fornecedor,
-                forma_pagamento: 'Cartão de Crédito',
+                forma_pagamento: 'Cartão de crédito',
             });
 
             if (resultado.sucesso) {
@@ -447,7 +454,7 @@ router.post('/:id/send-to-olist', async (req, res) => {
                 detalhes.push({ id: t.id, description: t.description, status: 'ok', id_olist: resultado.id });
             } else {
                 erros++;
-                detalhes.push({ id: t.id, description: t.description, status: 'erro', erro: resultado.erro });
+                detalhes.push({ id: t.id, description: t.description, status: 'erro', erro: resultado.erro, duplicata: !!resultado.duplicata });
             }
 
             if (i < toSend.length - 1) {
@@ -539,7 +546,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
                 data_emissao: dataEmissao,
                 competencia,
                 fornecedor,
-                forma_pagamento: 'Cartão de Crédito',
+                forma_pagamento: 'Cartão de crédito',
             });
 
             if (resultado.sucesso) {
@@ -548,7 +555,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
                 detalhes.push({ id: t.id, description: t.description, status: 'ok', id_olist: resultado.id });
             } else {
                 erros++;
-                detalhes.push({ id: t.id, description: t.description, status: 'erro', erro: resultado.erro });
+                detalhes.push({ id: t.id, description: t.description, status: 'erro', erro: resultado.erro, duplicata: !!resultado.duplicata });
             }
 
             if (i < toSend.length - 1) {

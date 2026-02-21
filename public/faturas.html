@@ -789,8 +789,9 @@
                     if (total > 0 && categorized >= total) {
                         status = 'categorized';
                     }
-                    // If sent_to_olist flag exists, override
-                    if (s.sent_to_olist) {
+                    // Se tem transações enviadas ao Olist, marcar como sent
+                    const sentCount = parseInt(s.sent_count) || 0;
+                    if (sentCount > 0 && categorized >= total) {
                         status = 'sent';
                     }
                     return { ...s, status };

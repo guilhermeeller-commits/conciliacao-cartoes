@@ -7,438 +7,16 @@
     <title>Dashboard — Calisul</title>
     <meta name="description" content="Central Financeira Calisul — Dashboard de faturas de cartão de crédito">
     <link rel="stylesheet" href="/css/design-system.css">
+    <link rel="stylesheet" href="/css/dashboard.css">
     <script src="/js/theme-toggle.js"></script>
     <script src="/js/sidebar.js"></script>
     <script src="/js/notifications.js"></script>
     <script src="/js/api-client.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-    <style>
-        /* ─── Dashboard Layout ─── */
-        .dashboard-grid {
-            display: grid;
-            gap: 24px;
-        }
-
-        /* ─── Welcome Banner ─── */
-        .welcome-banner {
-            background: linear-gradient(135deg, rgba(0, 94, 252, 0.08), rgba(99, 102, 241, 0.06));
-            border: 1px solid rgba(0, 94, 252, 0.15);
-            border-radius: var(--radius-lg);
-            padding: 28px 32px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .welcome-banner h2 {
-            font-size: 20px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-
-        .welcome-banner p {
-            font-size: 13px;
-            color: var(--text-secondary);
-        }
-
-        .welcome-sync {
-            text-align: right;
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        .welcome-sync .sync-time {
-            font-weight: 600;
-            color: var(--text-secondary);
-        }
-
-        /* ─── KPI accent bars ─── */
-        .kpi-card.accent-blue {
-            border-top: 3px solid var(--blue);
-        }
-
-        .kpi-card.accent-green {
-            border-top: 3px solid var(--green);
-        }
-
-        .kpi-card.accent-orange {
-            border-top: 3px solid var(--orange);
-        }
-
-        .kpi-card.accent-purple {
-            border-top: 3px solid #a855f7;
-        }
-
-        .kpi-value-row {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-        }
-
-        .kpi-pct {
-            font-size: 12px;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-
-        .kpi-pct.good {
-            background: rgba(63, 185, 80, 0.12);
-            color: var(--green);
-        }
-
-        .kpi-pct.warn {
-            background: rgba(227, 179, 65, 0.12);
-            color: var(--orange);
-        }
-
-        .kpi-pct.bad {
-            background: rgba(248, 81, 73, 0.12);
-            color: var(--red);
-        }
-
-        /* ─── Charts ─── */
-        .charts-row {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 24px;
-        }
-
-        @media (max-width: 900px) {
-            .charts-row {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .chart-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-lg);
-            padding: 24px;
-        }
-
-        .chart-card h3 {
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .chart-container {
-            position: relative;
-            width: 100%;
-        }
-
-        .chart-container.bar-chart {
-            height: 280px;
-        }
-
-        .chart-container.donut-chart {
-            height: 280px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* ─── Alerts ─── */
-        .alerts-section {
-            background: var(--bg-card);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-lg);
-            padding: 24px;
-        }
-
-        .alerts-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .alerts-header h3 {
-            font-size: 14px;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .alert-badge {
-            background: rgba(248, 81, 73, 0.12);
-            color: var(--red);
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 10px;
-        }
-
-        .alert-item {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 14px;
-            border-radius: var(--radius-md);
-            transition: background var(--transition-fast);
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .alert-item:hover {
-            background: var(--bg-hover);
-        }
-
-        .alert-item+.alert-item {
-            border-top: 1px solid var(--border-muted);
-        }
-
-        .alert-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-            background: rgba(248, 81, 73, 0.08);
-        }
-
-        .alert-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .alert-info h4 {
-            font-size: 13px;
-            font-weight: 600;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .alert-info p {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        .alert-action {
-            font-size: 12px;
-            color: var(--blue);
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        /* ─── Bottom Grid ─── */
-        .bottom-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
-
-        @media (max-width: 800px) {
-            .bottom-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .section-card {
-            background: var(--bg-card);
-            border: 1px solid var(--border-default);
-            border-radius: var(--radius-lg);
-            padding: 24px;
-        }
-
-        .section-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-        }
-
-        .section-header h3 {
-            font-size: 14px;
-            font-weight: 700;
-        }
-
-        /* ─── Recent items ─── */
-        .recent-item {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 14px;
-            border-radius: var(--radius-md);
-            transition: background var(--transition-fast);
-            cursor: pointer;
-            text-decoration: none;
-            color: inherit;
-        }
-
-        .recent-item:hover {
-            background: var(--bg-hover);
-        }
-
-        .recent-item+.recent-item {
-            border-top: 1px solid var(--border-muted);
-        }
-
-        .recent-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-            background: rgba(0, 94, 252, 0.08);
-        }
-
-        .recent-info {
-            flex: 1;
-            min-width: 0;
-        }
-
-        .recent-info h4 {
-            font-size: 13px;
-            font-weight: 600;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .recent-info p {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        .recent-meta {
-            text-align: right;
-        }
-
-        .recent-meta .date {
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        /* ─── Progress mini bar ─── */
-        .progress-mini {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 4px;
-        }
-
-        .progress-mini .bar {
-            width: 60px;
-            height: 4px;
-            background: var(--border-muted);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .progress-mini .bar .fill {
-            height: 100%;
-            background: var(--green);
-            border-radius: 2px;
-        }
-
-        .progress-mini .label {
-            font-size: 11px;
-            color: var(--text-muted);
-        }
-
-        /* ─── Card progress ─── */
-        .card-progress-item {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 12px 14px;
-            border-radius: var(--radius-md);
-        }
-
-        .card-progress-item+.card-progress-item {
-            border-top: 1px solid var(--border-muted);
-        }
-
-        .card-progress-icon {
-            width: 36px;
-            height: 36px;
-            border-radius: var(--radius-sm);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            flex-shrink: 0;
-            background: rgba(99, 102, 241, 0.08);
-        }
-
-        .card-progress-info {
-            flex: 1;
-        }
-
-        .card-progress-info h4 {
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .card-progress-info p {
-            font-size: 11px;
-            color: var(--text-muted);
-            margin-top: 2px;
-        }
-
-        .card-progress-pct {
-            font-size: 16px;
-            font-weight: 700;
-            text-align: right;
-        }
-
-        .card-progress-bar {
-            width: 80px;
-            height: 4px;
-            background: var(--border-muted);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-top: 4px;
-        }
-
-        .card-progress-bar .fill {
-            height: 100%;
-            background: var(--green);
-            border-radius: 2px;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 40px 20px;
-            color: var(--text-muted);
-            font-size: 13px;
-        }
-
-        .no-alerts {
-            padding: 24px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 13px;
-        }
-
-        .no-alerts .icon {
-            font-size: 32px;
-            margin-bottom: 8px;
-        }
-    </style>
 </head>
 
 <body>
     <div class="erp-layout">
-        <!-- Sidebar injected by sidebar.js -->
-
-        <!-- Main -->
         <main class="erp-main">
             <button class="mobile-toggle" id="mobileToggle" aria-label="Menu">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -448,101 +26,191 @@
                     <line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
             </button>
-
-            <!-- Breadcrumb -->
-            <div class="erp-breadcrumb">
-                <span class="current">dashboard</span>
-            </div>
+            <div class="erp-breadcrumb"><span class="current">dashboard</span></div>
 
             <div class="erp-content">
-                <div class="dashboard-grid">
-
-                    <!-- Welcome Banner -->
-                    <div class="welcome-banner">
-                        <div>
-                            <h2>Central Financeira — Cartões</h2>
-                            <p>Visão geral dos extratos e conciliações de cartão de crédito</p>
+                <div class="dash-grid">
+                    <!-- Header -->
+                    <div class="dash-header">
+                        <div class="dash-header-left">
+                            <h1>Central Financeira</h1>
+                            <p class="dash-subtitle">Visão geral dos extratos e conciliações de cartão de crédito</p>
                         </div>
-                        <div class="welcome-sync" id="syncInfo"></div>
+                        <div class="dash-header-right">
+                            <div class="period-selector">
+                                <button class="period-btn active" data-period="6m">6 meses</button>
+                                <button class="period-btn" data-period="3m">3 meses</button>
+                                <button class="period-btn" data-period="12m">12 meses</button>
+                                <button class="period-btn" data-period="all">Tudo</button>
+                            </div>
+                            <div class="sync-info" id="syncInfo"></div>
+                            <button class="btn-icon" id="refreshBtn" title="Atualizar dados">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="23 4 23 10 17 10" />
+                                    <polyline points="1 20 1 14 7 14" />
+                                    <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
-                    <!-- KPIs -->
-                    <div class="kpi-grid" id="kpiGrid">
-                        <div class="kpi-card accent-blue">
-                            <div class="kpi-label">Faturas importadas</div>
-                            <div class="kpi-value" id="kpiFaturas">—</div>
-                            <div class="kpi-sub" id="kpiFaturasSub">carregando...</div>
-                        </div>
-                        <div class="kpi-card accent-green">
-                            <div class="kpi-label">Transações categorizadas</div>
-                            <div class="kpi-value-row">
-                                <span class="kpi-value" id="kpiCategorizadas">—</span>
-                                <span class="kpi-pct" id="kpiCategorizadasPct"></span>
+                    <!-- KPIs Row 1 -->
+                    <div class="kpi-row" id="kpiGrid">
+                        <div class="kpi-card-pro anim-item" data-accent="var(--blue)">
+                            <div class="kpi-icon-wrap blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                </svg></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label-pro">Faturas Importadas</span>
+                                <div class="kpi-value-row-pro"><span class="kpi-value-pro" id="kpiFaturas">—</span>
+                                </div>
+                                <span class="kpi-sub-pro" id="kpiFaturasSub">carregando...</span>
                             </div>
-                            <div class="kpi-sub" id="kpiCategorizadasSub"></div>
+                            <div class="kpi-sparkline" id="sparkFaturas"></div>
                         </div>
-                        <div class="kpi-card accent-orange">
-                            <div class="kpi-label">Transações pendentes</div>
-                            <div class="kpi-value" id="kpiPendentes">—</div>
-                            <div class="kpi-sub" id="kpiPendentesSub"></div>
+                        <div class="kpi-card-pro anim-item" data-accent="var(--green)">
+                            <div class="kpi-icon-wrap green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <polyline points="9 11 12 14 22 4" />
+                                    <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11" />
+                                </svg></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label-pro">Categorizadas</span>
+                                <div class="kpi-value-row-pro"><span class="kpi-value-pro"
+                                        id="kpiCategorizadas">—</span><span class="kpi-badge"
+                                        id="kpiCategorizadasPct"></span></div>
+                                <span class="kpi-sub-pro" id="kpiCategorizadasSub"></span>
+                            </div>
                         </div>
-                        <div class="kpi-card accent-purple">
-                            <div class="kpi-label">Valor total</div>
-                            <div class="kpi-value" id="kpiValor">—</div>
-                            <div class="kpi-sub" id="kpiValorSub"></div>
+                        <div class="kpi-card-pro anim-item" data-accent="var(--orange)">
+                            <div class="kpi-icon-wrap orange"><svg width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="10" />
+                                    <line x1="12" y1="8" x2="12" y2="12" />
+                                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                                </svg></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label-pro">Pendentes</span>
+                                <div class="kpi-value-row-pro"><span class="kpi-value-pro" id="kpiPendentes">—</span>
+                                </div>
+                                <span class="kpi-sub-pro" id="kpiPendentesSub"></span>
+                            </div>
+                        </div>
+                        <div class="kpi-card-pro anim-item" data-accent="var(--purple)">
+                            <div class="kpi-icon-wrap purple"><svg width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="1" x2="12" y2="23" />
+                                    <path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6" />
+                                </svg></div>
+                            <div class="kpi-body">
+                                <span class="kpi-label-pro">Valor Total</span>
+                                <div class="kpi-value-row-pro"><span class="kpi-value-pro" id="kpiValor">—</span><span
+                                        class="kpi-trend" id="kpiValorTrend"></span></div>
+                                <span class="kpi-sub-pro" id="kpiValorSub"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- KPIs Row 2: ERP -->
+                    <div class="kpi-row kpi-row-secondary" id="kpiErpRow">
+                        <div class="kpi-card-pro kpi-compact anim-item" data-accent="var(--red)">
+                            <div class="kpi-icon-wrap red"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2v20M2 12h20" />
+                                </svg></div>
+                            <div class="kpi-body"><span class="kpi-label-pro">Contas a Pagar</span>
+                                <div class="kpi-value-row-pro"><span class="kpi-value-pro kpi-sm" id="kpiCP">—</span>
+                                </div><span class="kpi-sub-pro" id="kpiCPSub"></span>
+                            </div>
+                        </div>
+                        <div class="kpi-card-pro kpi-compact anim-item" data-accent="var(--cyan)">
+                            <div class="kpi-icon-wrap cyan"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <path d="M12 2v20M2 12h20" />
+                                </svg></div>
+                            <div class="kpi-body"><span class="kpi-label-pro">Contas a Receber</span>
+                                <div class="kpi-value-row-pro"><span class="kpi-value-pro kpi-sm" id="kpiCR">—</span>
+                                </div><span class="kpi-sub-pro" id="kpiCRSub"></span>
+                            </div>
+                        </div>
+                        <div class="kpi-card-pro kpi-compact anim-item" data-accent="var(--green)">
+                            <div class="kpi-icon-wrap green"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" stroke-width="2">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                                </svg></div>
+                            <div class="kpi-body"><span class="kpi-label-pro">Taxa Conciliação</span>
+                                <div class="kpi-value-row-pro"><span class="kpi-value-pro kpi-sm" id="kpiRec">—</span>
+                                </div><span class="kpi-sub-pro" id="kpiRecSub"></span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Alerts -->
-                    <div class="alerts-section" id="alertsSection">
-                        <div class="alerts-header">
-                            <h3>
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    <div class="dash-card anim-item" id="alertsSection">
+                        <div class="dash-card-header">
+                            <h3><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path
                                         d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
                                     <line x1="12" y1="9" x2="12" y2="13" />
                                     <line x1="12" y1="17" x2="12.01" y2="17" />
-                                </svg>
-                                Atenção necessária
-                                <span class="alert-badge" id="alertCount">0</span>
-                            </h3>
+                                </svg> Atenção necessária <span class="alert-badge" id="alertCount">0</span></h3>
                             <a href="/faturas.html?status=pending" class="btn btn-outline btn-sm">Ver todas</a>
                         </div>
                         <div id="alertsList"></div>
                     </div>
 
-                    <!-- Charts -->
-                    <div class="charts-row">
-                        <div class="chart-card">
-                            <h3>📊 Gastos por Categoria (últimos 6 meses)</h3>
-                            <div class="chart-container bar-chart">
-                                <canvas id="chartMonthly"></canvas>
+                    <!-- Charts Row 1: Trend + Donut -->
+                    <div class="charts-row anim-item">
+                        <div class="dash-card chart-card-main">
+                            <div class="dash-card-header">
+                                <h3>📈 Evolução Mensal</h3>
                             </div>
+                            <div class="chart-container" style="height:300px"><canvas id="chartTrend"></canvas></div>
                         </div>
-                        <div class="chart-card">
-                            <h3>💳 Distribuição por Cartão</h3>
-                            <div class="chart-container donut-chart">
-                                <canvas id="chartDonut"></canvas>
+                        <div class="dash-card chart-card-side">
+                            <div class="dash-card-header">
+                                <h3>💳 Distribuição por Cartão</h3>
                             </div>
+                            <div class="chart-container donut-wrap" style="height:300px"><canvas
+                                    id="chartDonut"></canvas></div>
+                        </div>
+                    </div>
+
+                    <!-- Charts Row 2: Category Bars + Top Categories -->
+                    <div class="charts-row anim-item">
+                        <div class="dash-card chart-card-main">
+                            <div class="dash-card-header">
+                                <h3>📊 Gastos por Categoria (6 meses)</h3>
+                            </div>
+                            <div class="chart-container" style="height:300px"><canvas id="chartMonthly"></canvas></div>
+                        </div>
+                        <div class="dash-card chart-card-side">
+                            <div class="dash-card-header">
+                                <h3>🏆 Top Categorias</h3>
+                            </div>
+                            <div id="topCategoriesList" class="top-list"></div>
                         </div>
                     </div>
 
                     <!-- Bottom: Recent + Card Progress -->
-                    <div class="bottom-grid">
-                        <div class="section-card">
-                            <div class="section-header">
-                                <h3>📋 Últimas faturas importadas</h3>
-                                <a href="/faturas.html" class="btn btn-outline btn-sm">Ver todas</a>
+                    <div class="bottom-grid anim-item">
+                        <div class="dash-card">
+                            <div class="dash-card-header">
+                                <h3>📋 Últimas faturas importadas</h3><a href="/faturas.html"
+                                    class="btn btn-outline btn-sm">Ver todas</a>
                             </div>
                             <div id="recentList">
                                 <div class="empty-state">Carregando...</div>
                             </div>
                         </div>
-                        <div class="section-card">
-                            <div class="section-header">
-                                <h3>🔄 Progresso por cartão</h3>
-                                <a href="/faturas.html" class="btn btn-outline btn-sm">Ver faturas</a>
+                        <div class="dash-card">
+                            <div class="dash-card-header">
+                                <h3>🔄 Progresso por Cartão</h3><a href="/faturas.html"
+                                    class="btn btn-outline btn-sm">Ver faturas</a>
                             </div>
                             <div id="cardProgress">
                                 <div class="empty-state">Carregando...</div>
@@ -550,302 +218,18 @@
                         </div>
                     </div>
 
+                    <!-- ERP: Top Fornecedores -->
+                    <div class="dash-card anim-item" id="fornecedoresSection" style="display:none">
+                        <div class="dash-card-header">
+                            <h3>🏢 Top Fornecedores (ERP)</h3>
+                        </div>
+                        <div id="topFornecedoresList" class="top-list"></div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
-
-    <script>
-        // ─── Chart.js Config ──────────────────────────
-        const CHART_COLORS = [
-            '#005efc', '#3fb950', '#e3b341', '#f85149',
-            '#a855f7', '#06b6d4', '#f97316', '#ec4899',
-        ];
-
-        // ─── Init ─────────────────────────────────────
-        document.addEventListener('DOMContentLoaded', loadDashboard);
-
-        async function loadDashboard() {
-            try {
-                const res = await fetch('/api/dashboard/stats');
-                const data = await res.json();
-
-                renderKPIs(data.kpis);
-                renderAlerts(data.alerts);
-                renderChartMonthly(data.charts.monthly);
-                renderChartDonut(data.charts.byCard);
-                renderRecent(data.recent);
-                renderCardProgress(data.cardProgress);
-                renderSyncInfo(data.kpis.last_olist_sync);
-            } catch (e) {
-                console.error('Erro ao carregar dashboard:', e);
-            }
-        }
-
-        // ─── KPIs ─────────────────────────────────────
-        function renderKPIs(kpis) {
-            document.getElementById('kpiFaturas').textContent = kpis.total_statements;
-            document.getElementById('kpiFaturasSub').textContent =
-                kpis.total_statements === 0
-                    ? 'nenhuma fatura'
-                    : `de ${kpis.distinct_cards} cartões`;
-
-            document.getElementById('kpiCategorizadas').textContent =
-                kpis.total_categorized.toLocaleString('pt-BR');
-
-            const pctEl = document.getElementById('kpiCategorizadasPct');
-            pctEl.textContent = `${kpis.pct_categorized}%`;
-            pctEl.className = 'kpi-pct ' +
-                (kpis.pct_categorized >= 80 ? 'good' : kpis.pct_categorized >= 50 ? 'warn' : 'bad');
-
-            document.getElementById('kpiCategorizadasSub').textContent =
-                `de ${kpis.total_transactions.toLocaleString('pt-BR')} transações`;
-
-            document.getElementById('kpiPendentes').textContent =
-                kpis.total_pending.toLocaleString('pt-BR');
-            document.getElementById('kpiPendentesSub').textContent =
-                kpis.total_pending === 0 ? 'tudo categorizado! 🎉' : 'aguardando classificação';
-
-            document.getElementById('kpiValor').textContent =
-                `R$ ${kpis.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-            document.getElementById('kpiValorSub').textContent = 'soma de todas as faturas';
-        }
-
-        // ─── Sync Info ────────────────────────────────
-        function renderSyncInfo(lastSync) {
-            const el = document.getElementById('syncInfo');
-            if (!lastSync) {
-                el.innerHTML = '<span>Olist: <span class="sync-time">nunca sincronizado</span></span>';
-                return;
-            }
-            const date = new Date(lastSync);
-            const formatted = date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-            el.innerHTML = `<span>Última sync Olist:<br><span class="sync-time">${formatted}</span></span>`;
-        }
-
-        // ─── Alerts ───────────────────────────────────
-        function renderAlerts(alerts) {
-            const container = document.getElementById('alertsList');
-            const badge = document.getElementById('alertCount');
-
-            if (!alerts || alerts.length === 0) {
-                badge.textContent = '0';
-                container.innerHTML = `
-                    <div class="no-alerts">
-                        <div class="icon">✅</div>
-                        <p>Nenhuma fatura pendente de categorização</p>
-                    </div>`;
-                return;
-            }
-
-            badge.textContent = alerts.length;
-
-            container.innerHTML = alerts.map(a => {
-                const pct = a.total_transactions > 0
-                    ? Math.round((a.categorized_count / a.total_transactions) * 100)
-                    : 0;
-                return `
-                    <a class="alert-item" href="/extrato-detalhe.html?id=${a.id}">
-                        <div class="alert-icon">⚠️</div>
-                        <div class="alert-info">
-                            <h4>${escapeHtml(a.filename)}</h4>
-                            <p>${a.pending_count} transações sem categoria · ${pct}% categorizado</p>
-                        </div>
-                        <div class="alert-action">Categorizar →</div>
-                    </a>`;
-            }).join('');
-        }
-
-        // ─── Chart: Monthly by Category ───────────────
-        function renderChartMonthly(monthly) {
-            const ctx = document.getElementById('chartMonthly');
-            if (!monthly || !monthly.labels || monthly.labels.length === 0) {
-                ctx.parentElement.innerHTML = '<div class="empty-state">Sem dados de transações categorizadas para o gráfico</div>';
-                return;
-            }
-
-            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-            const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)';
-            const textColor = isDark ? '#8b949e' : '#656d76';
-
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: monthly.labels,
-                    datasets: monthly.datasets.map((ds, i) => ({
-                        label: ds.label,
-                        data: ds.data,
-                        backgroundColor: CHART_COLORS[i % CHART_COLORS.length] + 'cc',
-                        borderRadius: 3,
-                        borderSkipped: false,
-                    })),
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: textColor,
-                                font: { size: 11 },
-                                boxWidth: 12,
-                                padding: 12,
-                            },
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => `${ctx.dataset.label}: R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
-                            },
-                        },
-                    },
-                    scales: {
-                        x: {
-                            stacked: true,
-                            grid: { display: false },
-                            ticks: { color: textColor, font: { size: 11 } },
-                        },
-                        y: {
-                            stacked: true,
-                            grid: { color: gridColor },
-                            ticks: {
-                                color: textColor,
-                                font: { size: 11 },
-                                callback: (v) => `R$ ${(v / 1000).toFixed(0)}k`,
-                            },
-                        },
-                    },
-                },
-            });
-        }
-
-        // ─── Chart: Donut by Card ─────────────────────
-        function renderChartDonut(byCard) {
-            const ctx = document.getElementById('chartDonut');
-            if (!byCard || !byCard.labels || byCard.labels.length === 0) {
-                ctx.parentElement.innerHTML = '<div class="empty-state">Sem dados para o gráfico</div>';
-                return;
-            }
-
-            const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
-            const textColor = isDark ? '#8b949e' : '#656d76';
-
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: byCard.labels,
-                    datasets: [{
-                        data: byCard.data,
-                        backgroundColor: CHART_COLORS.slice(0, byCard.labels.length),
-                        borderWidth: 0,
-                        hoverOffset: 6,
-                    }],
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '65%',
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                color: textColor,
-                                font: { size: 11 },
-                                boxWidth: 12,
-                                padding: 12,
-                            },
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: (ctx) => {
-                                    const total = ctx.dataset.data.reduce((s, v) => s + v, 0);
-                                    const pct = total > 0 ? Math.round((ctx.raw / total) * 100) : 0;
-                                    return `${ctx.label}: R$ ${ctx.raw.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${pct}%)`;
-                                },
-                            },
-                        },
-                    },
-                },
-            });
-        }
-
-        // ─── Recent ───────────────────────────────────
-        function renderRecent(recent) {
-            const container = document.getElementById('recentList');
-
-            if (!recent || recent.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <p>Nenhuma fatura importada ainda</p>
-                        <a href="/faturas.html" class="btn btn-blue btn-sm">Importar primeira fatura</a>
-                    </div>`;
-                return;
-            }
-
-            container.innerHTML = recent.map(s => {
-                const date = formatDate(s.statement_date);
-                const pct = s.total_transactions > 0
-                    ? Math.round((s.categorized_count / s.total_transactions) * 100) : 0;
-                return `
-                    <a class="recent-item" href="/extrato-detalhe.html?id=${s.id}">
-                        <div class="recent-icon">💳</div>
-                        <div class="recent-info">
-                            <h4>${escapeHtml(s.filename)}</h4>
-                            <p>${escapeHtml(s.card_name || '—')} · ${escapeHtml(s.financial_account || '—')}</p>
-                        </div>
-                        <div class="recent-meta">
-                            <div class="date">${date}</div>
-                            <div class="progress-mini">
-                                <div class="bar"><div class="fill" style="width: ${pct}%"></div></div>
-                                <span class="label">${s.categorized_count}/${s.total_transactions}</span>
-                            </div>
-                        </div>
-                    </a>`;
-            }).join('');
-        }
-
-        // ─── Card Progress ────────────────────────────
-        function renderCardProgress(progress) {
-            const container = document.getElementById('cardProgress');
-
-            if (!progress || progress.length === 0) {
-                container.innerHTML = '<div class="empty-state">Nenhum dado disponível</div>';
-                return;
-            }
-
-            container.innerHTML = progress.map(c => {
-                const pct = c.total_tx > 0 ? Math.round((c.categorized_tx / c.total_tx) * 100) : 0;
-                const pctColor = pct === 100 ? 'var(--green)' : 'var(--text-primary)';
-                return `
-                    <div class="card-progress-item">
-                        <div class="card-progress-icon">💳</div>
-                        <div class="card-progress-info">
-                            <h4>${escapeHtml(c.card_name)}</h4>
-                            <p>${c.statement_count} fatura${c.statement_count !== 1 ? 's' : ''} · R$ ${c.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <div class="card-progress-pct" style="color: ${pctColor}">${pct}%</div>
-                            <div class="card-progress-bar"><div class="fill" style="width: ${pct}%"></div></div>
-                        </div>
-                    </div>`;
-            }).join('');
-        }
-
-        // ─── Helpers ──────────────────────────────────
-        function formatDate(dateStr) {
-            if (!dateStr) return '—';
-            const parts = dateStr.split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            return dateStr;
-        }
-
-        function escapeHtml(str) {
-            if (!str) return '';
-            const div = document.createElement('div');
-            div.textContent = str;
-            return div.innerHTML;
-        }
-    </script>
+    <script src="/js/dashboard.js"></script>
 </body>
 
 </html>

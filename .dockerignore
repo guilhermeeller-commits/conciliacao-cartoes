@@ -1,0 +1,21 @@
+node_modules/
+.git/
+.gitignore
+.env
+.env.example
+.DS_Store
+.tmp/
+data/
+dados-financeiros/
+uploads/
+Extratos_Cartões/
+Integração_Olist/
+
+# Docs
+*.md
+*.docx
+~$*
+
+# IDE
+.vscode/
+.idea/

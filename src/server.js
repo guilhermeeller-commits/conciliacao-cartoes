@@ -86,6 +86,18 @@ async function bootstrap() {
         app.set('trust proxy', 1);
     }
 
+    // ─── Forçar HTTPS em produção ──────────────────────────────
+    // O Railway termina o SSL no proxy e repassa via x-forwarded-proto.
+    // Qualquer requisição HTTP pura é redirecionada para HTTPS (301).
+    if (process.env.NODE_ENV === 'production') {
+        app.use((req, res, next) => {
+            if (req.headers['x-forwarded-proto'] !== 'https') {
+                return res.redirect(301, `https://${req.headers.host}${req.url}`);
+            }
+            next();
+        });
+    }
+
     // Request ID — correlação de logs por requisição
     app.use(requestIdMiddleware);
 

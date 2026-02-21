@@ -55,7 +55,9 @@ const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const passport = require('./config/passport');
 const { allowPublicAssets } = require('./middlewares/auth.middleware');
+const { requestIdMiddleware } = require('./middlewares/request-id');
 const { pool } = require('./database/connection');
+const { query } = require('./database/connection');
 
 // ─── Database & Bootstrap ─────────────────────
 const { runMigrations } = require('./database/migrations');
@@ -74,6 +76,9 @@ async function bootstrap() {
     if (process.env.NODE_ENV === 'production') {
         app.set('trust proxy', 1);
     }
+
+    // Request ID — correlação de logs por requisição
+    app.use(requestIdMiddleware);
 
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
@@ -211,14 +216,39 @@ async function bootstrap() {
     const reportsRoutes = require('./modules/reports/reports.routes');
     app.use('/api/reports', reportsRoutes);
 
-    // Health check
-    app.get('/health', (req, res) => {
-        res.json({
+    // Health check avançado
+    const serverStartTime = Date.now();
+    app.get('/health', async (req, res) => {
+        const health = {
             status: 'ok',
             service: 'conciliacao-cartoes',
-            database: 'postgresql',
             timestamp: new Date().toISOString(),
-        });
+            uptime: Math.floor((Date.now() - serverStartTime) / 1000),
+            memory: {
+                rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+                heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+            },
+            database: { status: 'unknown' },
+        };
+
+        // Verificar banco de dados
+        try {
+            const start = Date.now();
+            await query('SELECT 1');
+            health.database = {
+                status: 'ok',
+                responseMs: Date.now() - start,
+            };
+        } catch (dbErr) {
+            health.status = 'degraded';
+            health.database = {
+                status: 'error',
+                error: dbErr.message,
+            };
+        }
+
+        const statusCode = health.status === 'ok' ? 200 : 503;
+        res.status(statusCode).json(health);
     });
 
     // Serve dashboard at root

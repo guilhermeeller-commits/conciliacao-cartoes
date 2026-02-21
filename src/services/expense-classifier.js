@@ -1,14 +1,13 @@
 const logger = require('../utils/logger');
-const fs = require('fs');
 const path = require('path');
 
 // ─── Carrega regras de classificação ──────────
 const configPath = path.join(__dirname, '../../config/financial-rules.json');
+const fs = require('fs');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
 
 // ─── Repositório de mapeamentos aprendidos ────
-// Usa SQLite via learned-mappings-repo (antes era JSON file).
-// Fallback para JSON apenas se o DB ainda não estiver pronto.
+// Fonte de verdade única: PostgreSQL via learned-mappings-repo.
 let learnedMappingsRepo;
 try {
     learnedMappingsRepo = require('../repositories/learned-mappings-repo');
@@ -17,51 +16,34 @@ try {
     learnedMappingsRepo = null;
 }
 
-// ─── Fallback: caminho do JSON legado ─────────
-const learnedPath = path.join(__dirname, '../../config/learned-mappings.json');
-
 async function carregarMapeamentos() {
-    // Tentar primeiro pelo repositório PostgreSQL
+    // Fonte de verdade: PostgreSQL
     if (learnedMappingsRepo) {
         try {
             return await learnedMappingsRepo.getAll();
         } catch (e) {
-            logger.warn(`⚠️ Fallback para JSON: ${e.message}`);
+            logger.warn(`⚠️ Erro ao carregar mapeamentos do PostgreSQL: ${e.message}`);
         }
     }
-    // Fallback: JSON file
-    try {
-        if (fs.existsSync(learnedPath)) {
-            return JSON.parse(fs.readFileSync(learnedPath, 'utf-8'));
-        }
-    } catch (e) {
-        logger.warn(`⚠️ Erro ao carregar mapeamentos: ${e.message}`);
-    }
+    // Se o repositório não está disponível, retornar vazio
+    logger.warn('⚠️ Repositório de mapeamentos não disponível — classificação por memória desabilitada');
     return {};
 }
 
 async function salvarMapeamento(descricao, categoria) {
     const key = normalizarDescricao(descricao);
 
-    // Salvar no PostgreSQL (principal)
+    // Salvar apenas no PostgreSQL (fonte de verdade única)
     if (learnedMappingsRepo) {
         try {
             await learnedMappingsRepo.salvar(key, categoria);
         } catch (e) {
-            logger.warn(`⚠️ Erro PostgreSQL, fallback JSON: ${e.message}`);
+            logger.error(`❌ Erro ao salvar mapeamento no PostgreSQL: ${e.message}`);
+            throw e;
         }
-    }
-
-    // Também salvar no JSON como backup (dual-write temporário)
-    try {
-        const mappings = {};
-        if (fs.existsSync(learnedPath)) {
-            Object.assign(mappings, JSON.parse(fs.readFileSync(learnedPath, 'utf-8')));
-        }
-        mappings[key] = categoria;
-        fs.writeFileSync(learnedPath, JSON.stringify(mappings, null, 2), 'utf-8');
-    } catch (e) {
-        // Não-fatal: PostgreSQL é a fonte de verdade
+    } else {
+        logger.error('❌ Repositório de mapeamentos não disponível — impossível salvar');
+        throw new Error('Repositório de mapeamentos não disponível');
     }
 
     return true;

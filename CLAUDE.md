@@ -8,7 +8,7 @@ Módulo de conciliação de faturas de cartão de crédito extraído do monolito
 
 - **Runtime:** Node.js >= 18
 - **Framework:** Express.js 4
-- **Banco:** SQLite (better-sqlite3) — apenas para learned_mappings
+- **Banco:** PostgreSQL (Cloud SQL via pg)
 - **PDF:** pdf-parse
 - **API Externa:** Tiny ERP API v2 (axios)
 - **Logging:** Winston
@@ -18,7 +18,7 @@ Módulo de conciliação de faturas de cartão de crédito extraído do monolito
 ```
 src/
 ├── server.js                          # Entry point Express
-├── database/                          # SQLite connection + migrations
+├── database/                          # PostgreSQL connection + migrations
 ├── modules/conciliacao-cartao/        # Rotas da API (reconciliation.routes.js)
 ├── services/                          # Lógica de negócio
 │   ├── pdf-parser.js                  # Parse de PDF de fatura (detecta banco)
@@ -26,7 +26,7 @@ src/
 │   ├── olist-financial.js             # CRUD contas a pagar (Tiny API)
 │   └── olist-notas.js                 # Consulta NF-e (Tiny API)
 ├── repositories/
-│   └── learned-mappings-repo.js       # Mapeamentos aprendidos (SQLite)
+│   └── learned-mappings-repo.js       # Mapeamentos aprendidos (PostgreSQL)
 └── utils/
     └── logger.js                      # Winston logger
 ```
@@ -35,7 +35,7 @@ src/
 
 1. **Upload PDF** → `POST /api/reconciliation/upload`
 2. **Parse** → `pdf-parser.js` extrai transações, detecta banco (Caixa, Cresol, Santander, Mercado Pago)
-3. **Classificar** → `expense-classifier.js` aplica regras de `financial-rules.json` + memória do SQLite
+3. **Classificar** → `expense-classifier.js` aplica regras de `financial-rules.json` + memória do PostgreSQL
 4. **Cruzar NF** → `olist-notas.js` tenta encontrar NF-e correspondente via Tiny API
 5. **Enviar ERP** → `olist-financial.js` cria conta a pagar no Olist
 6. **Baixar** → `POST /api/reconciliation/pay-batch` marca como pago

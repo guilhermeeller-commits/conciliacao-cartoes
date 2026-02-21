@@ -1,7 +1,56 @@
 require('dotenv').config();
 
+// ═══════════════════════════════════════════════════════════
+// Validação de variáveis de ambiente obrigatórias (item 1.4)
+// DEVE rodar ANTES de qualquer import que dependa de env vars
+// ═══════════════════════════════════════════════════════════
+
+function validateEnv() {
+    const required = [
+        { name: 'SESSION_SECRET', minLength: 32 },
+        { name: 'DATABASE_URL' },
+        { name: 'TINY_API_TOKEN' },
+        { name: 'GOOGLE_CLIENT_ID' },
+        { name: 'GOOGLE_CLIENT_SECRET' },
+    ];
+
+    const missing = [];
+    const invalid = [];
+
+    for (const { name, minLength } of required) {
+        const value = process.env[name];
+        if (!value || value.trim() === '') {
+            missing.push(name);
+        } else if (minLength && value.length < minLength) {
+            invalid.push(`${name} (mínimo ${minLength} caracteres, atual: ${value.length})`);
+        }
+    }
+
+    if (missing.length > 0 || invalid.length > 0) {
+        console.error('');
+        console.error('═══════════════════════════════════════════════════');
+        console.error('❌ ERRO FATAL: Variáveis de ambiente obrigatórias');
+        console.error('═══════════════════════════════════════════════════');
+        if (missing.length > 0) {
+            console.error(`\n  Variáveis AUSENTES: ${missing.join(', ')}`);
+        }
+        if (invalid.length > 0) {
+            console.error(`\n  Variáveis INVÁLIDAS: ${invalid.join(', ')}`);
+        }
+        console.error('\n  Copie o .env.example para .env e preencha todas as variáveis.');
+        console.error('  Para gerar um SESSION_SECRET seguro: openssl rand -base64 48');
+        console.error('═══════════════════════════════════════════════════\n');
+        process.exit(1);
+    }
+}
+
+validateEnv();
+
+// ═══════════════════════════════════════════════════════════
+
 const express = require('express');
 const path = require('path');
+const crypto = require('crypto');
 const session = require('express-session');
 const pgSession = require('connect-pg-simple')(session);
 const passport = require('./config/passport');
@@ -30,13 +79,14 @@ async function bootstrap() {
     app.use(express.urlencoded({ extended: true }));
 
     // Session Configuration — armazena sessões no PostgreSQL
+    // SESSION_SECRET já é validado no boot (item 1.1 — sem fallback hardcoded)
     app.use(session({
         store: new pgSession({
             pool,
             tableName: 'session',
             createTableIfMissing: true,
         }),
-        secret: process.env.SESSION_SECRET || 'calisul-financeira-secret-key-12345',
+        secret: process.env.SESSION_SECRET,
         resave: false,
         saveUninitialized: false,
         cookie: {
@@ -50,6 +100,52 @@ async function bootstrap() {
     // Initialize Passport
     app.use(passport.initialize());
     app.use(passport.session());
+
+    // ═══════════════════════════════════════════════
+    // CSRF Protection — Double-Submit Cookie Pattern (item 1.2)
+    // ═══════════════════════════════════════════════
+
+    // Endpoint para obter token CSRF (chamado pelo frontend)
+    app.get('/api/csrf-token', (req, res) => {
+        // Gera token CSRF e armazena na sessão
+        if (!req.session.csrfToken) {
+            req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+        }
+        res.json({ csrfToken: req.session.csrfToken });
+    });
+
+    // Middleware CSRF — valida token em requisições mutantes
+    app.use((req, res, next) => {
+        // Skip para métodos seguros (GET, HEAD, OPTIONS)
+        if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+            return next();
+        }
+
+        // Skip para rotas de autenticação (antes da sessão estar estabelecida)
+        if (req.path.startsWith('/auth/')) {
+            return next();
+        }
+
+        // Skip para health check
+        if (req.path === '/health') {
+            return next();
+        }
+
+        // Verificar token CSRF
+        const tokenFromHeader = req.headers['x-csrf-token'];
+        const tokenFromSession = req.session?.csrfToken;
+
+        if (!tokenFromSession || !tokenFromHeader || tokenFromHeader !== tokenFromSession) {
+            return res.status(403).json({
+                erro: 'Token CSRF inválido ou ausente. Obtenha um token via GET /api/csrf-token',
+                codigo: 'CSRF_INVALID',
+            });
+        }
+
+        next();
+    });
+
+    // ═══════════════════════════════════════════════
 
     // Redirects from old/legacy pages (MUST be before static middleware)
     app.get('/extratos-cartao.html', (req, res) => res.redirect(301, '/faturas.html'));
@@ -144,3 +240,4 @@ bootstrap().catch(err => {
     console.error('❌ Falha ao iniciar servidor:', err);
     process.exit(1);
 });
+

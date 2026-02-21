@@ -86,3 +86,11 @@ src/
 - Migrations são sequenciais (001_, 002_, ...)
 - Frontend é HTML puro (sem framework JS) servido como static
 - O `conciliacao.html` contém TODO o frontend inline (CSS + JS)
+
+## Segurança
+
+- **Variáveis de ambiente:** O servidor valida `SESSION_SECRET`, `DATABASE_URL`, `TINY_API_TOKEN`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` no boot. Ausência de qualquer uma faz `process.exit(1)`.
+- **SESSION_SECRET:** Deve ter ≥32 caracteres. Sem fallback hardcoded.
+- **CSRF:** Proteção via double-submit cookie pattern. Frontend deve obter token via `GET /api/csrf-token` e enviar no header `X-CSRF-Token` em toda requisição POST/PUT/DELETE.
+- **Path traversal:** Rotas que recebem parâmetros de arquivo (year, month, banco, filename) passam pelo utilitário `safePath` que valida cada segmento.
+- **Idempotência:** Envio ao ERP usa hash SHA256 para evitar duplicatas. Tabela `sent_transactions` registra cada envio.

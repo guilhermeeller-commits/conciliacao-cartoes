@@ -9,6 +9,10 @@ const { classificarItens, gerarResumo, salvarMapeamento } = require('../../servi
 const { incluirContaPagar, baixarContaPagar, pesquisarContasPagar, obterContaPagar, excluirContaPagar, estornarBaixa } = require('../../services/olist-financial');
 const { pesquisarNotasEntrada, obterNotaFiscal, inferirCategoriaPorItens, cruzarTransacaoComNotas } = require('../../services/olist-notas');
 const logger = require('../../utils/logger');
+const { safePath, validators, SafePathError } = require('../../utils/safe-path');
+
+// Base directory for Banco de Dados files
+const BANCO_DADOS_BASE = path.join(__dirname, '../../../data/banco-dados');
 
 // Config
 const configPath = path.join(__dirname, '../../../config/financial-rules.json');
@@ -111,7 +115,19 @@ router.post('/preview', upload.single('pdf'), async (req, res) => {
 router.post('/preview-from-bd', async (req, res) => {
     try {
         const { year, month, banco, filename } = req.body;
-        const filePath = path.join(__dirname, '../../../data/banco-dados', year, month, banco, filename);
+
+        // Validação e sanitização de path traversal
+        let filePath;
+        try {
+            validators.year(year);
+            validators.month(month);
+            validators.banco(banco);
+            validators.filename(filename);
+            filePath = safePath(BANCO_DADOS_BASE, year, month, banco, filename);
+        } catch (pathError) {
+            logger.warn(`⚠️ Path traversal detectado em preview-from-bd: ${pathError.message}`);
+            return res.status(400).json({ erro: 'Parâmetros de caminho inválidos' });
+        }
 
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({ erro: 'Arquivo não encontrado no Banco de Dados' });
@@ -154,7 +170,19 @@ router.post('/preview-from-bd', async (req, res) => {
 router.post('/upload-from-bd', async (req, res) => {
     try {
         const { year, month, banco, filename, cartao } = req.body;
-        const filePath = path.join(__dirname, '../../../data/banco-dados', year, month, banco, filename);
+
+        // Validação e sanitização de path traversal
+        let filePath;
+        try {
+            validators.year(year);
+            validators.month(month);
+            validators.banco(banco);
+            validators.filename(filename);
+            filePath = safePath(BANCO_DADOS_BASE, year, month, banco, filename);
+        } catch (pathError) {
+            logger.warn(`⚠️ Path traversal detectado em upload-from-bd: ${pathError.message}`);
+            return res.status(400).json({ erro: 'Parâmetros de caminho inválidos' });
+        }
 
         if (!fs.existsSync(filePath)) {
             return res.status(404).json({ erro: 'Arquivo não encontrado no Banco de Dados' });
@@ -238,6 +266,15 @@ router.post('/upload-from-bd', async (req, res) => {
             },
         });
     } catch (error) {
+        // Tratar violação de unicidade do PostgreSQL (upload duplicado)
+        if (error.code === '23505' && error.constraint === 'uq_card_statements_card_date_file') {
+            logger.warn(`⚠️ Upload duplicado detectado: ${error.detail}`);
+            return res.status(409).json({
+                erro: 'Esta fatura já foi processada anteriormente',
+                duplicata: true,
+                mensagem: 'Use a opção de reprocessar se deseja substituir os dados existentes',
+            });
+        }
         logger.error(`❌ Erro processamento BD: ${error.message}`);
         res.status(500).json({ erro: error.message });
     }
@@ -350,6 +387,15 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
             },
         });
     } catch (error) {
+        // Tratar violação de unicidade do PostgreSQL (upload duplicado)
+        if (error.code === '23505' && error.constraint === 'uq_card_statements_card_date_file') {
+            logger.warn(`⚠️ Upload duplicado detectado: ${error.detail}`);
+            return res.status(409).json({
+                erro: 'Esta fatura já foi processada anteriormente',
+                duplicata: true,
+                mensagem: 'Use a opção de reprocessar se deseja substituir os dados existentes',
+            });
+        }
         logger.error(`❌ Erro no upload: ${error.message}`);
         res.status(500).json({ erro: error.message });
     }

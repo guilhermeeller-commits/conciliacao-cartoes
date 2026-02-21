@@ -14,9 +14,9 @@ const path = require('path');
 // ─── Carrega categorias válidas do banco ──────
 const cardRulesRepo = require('../repositories/card-rules-repo');
 
-function getCategorias() {
+async function getCategorias() {
     try {
-        return cardRulesRepo.getCategories();
+        return await cardRulesRepo.getCategories();
     } catch (e) {
         // Fallback: tenta ler do JSON se o DB ainda não estiver pronto
         const fs = require('fs');
@@ -62,7 +62,8 @@ async function classificarComIA(itens) {
         .map((item, i) => `${i + 1}. "${item.descricao}" — R$ ${item.valor.toFixed(2)}`)
         .join('\n');
 
-    const CATEGORIAS = getCategorias();
+    // Bug 8 fix: getCategorias agora é async
+    const CATEGORIAS = await getCategorias();
     const listaCategorias = CATEGORIAS.map(c => `- ${c}`).join('\n');
 
     const prompt = `Você é um classificador financeiro especializado em despesas empresariais de uma transportadora brasileira chamada Calisul.

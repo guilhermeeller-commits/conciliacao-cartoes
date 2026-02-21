@@ -35,15 +35,25 @@ const upload = multer({
 
 /**
  * Gera nro_documento padronizado: MM/YY - Cartão - {Fornecedor}
- * Ex: vencimento="15/02/2026", fornecedor="Caixa Econômica Federal"
- *  →  "02/26 - Cartão - Caixa Econômica Federal"
+ * Aceita tanto DD/MM/YYYY quanto YYYY-MM-DD (ISO).
+ * Ex: "15/02/2026" ou "2026-02-15" → "02/26 - Cartão - Caixa Econômica Federal"
  */
 function formatNroDocumento(vencimento, fornecedor) {
     if (!vencimento) return '';
-    const parts = vencimento.split('/');
-    if (parts.length !== 3) return '';
-    const mm = parts[1].padStart(2, '0');
-    const yy = parts[2].slice(-2);
+    let mm, yy;
+    if (vencimento.includes('-')) {
+        // ISO: YYYY-MM-DD
+        const parts = vencimento.split('-');
+        if (parts.length < 2) return '';
+        mm = parts[1].padStart(2, '0');
+        yy = parts[0].slice(-2);
+    } else {
+        // legado: DD/MM/YYYY
+        const parts = vencimento.split('/');
+        if (parts.length !== 3) return '';
+        mm = parts[1].padStart(2, '0');
+        yy = parts[2].slice(-2);
+    }
     return `${mm}/${yy} - Cartão - ${fornecedor}`;
 }
 
@@ -200,8 +210,8 @@ router.post('/upload-from-bd', async (req, res) => {
         const { banco: bancoDetectado, transacoes, metadados } = await parsePdfFatura(buffer);
         logger.info(`   → Banco detectado: ${bancoDetectado}, ${transacoes.length} transações`);
 
-        // 2. Classify
-        const itensClassificados = classificarTransacoes(transacoes);
+        // 2. Classify — Bug 1 fix: função era classificarTransacoes (inexistente). Bug 2: precisa de await
+        const itensClassificados = await classificarItens(transacoes);
         logger.info(`   → ${itensClassificados.filter(t => t.confianca !== 'manual').length}/${itensClassificados.length} classificados automaticamente`);
 
         // 3. NF cross-reference (max 10s)
@@ -310,8 +320,8 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
             });
         }
 
-        // 2. Classifica (regras + memória)
-        const itensClassificados = classificarItens(transacoes);
+        // 2. Classifica (regras + memória) — Bug 2 fix: classificarItens é async, precisa de await
+        const itensClassificados = await classificarItens(transacoes);
 
         // 3. Tenta cruzar itens não classificados com NFs do Olist (max 10s)
         let nfsCruzadas = 0;
@@ -553,19 +563,39 @@ router.post('/send', async (req, res) => {
  * Calcula range de datas para busca de NFs.
  * Usa as datas das transações + metadados para definir período.
  */
+/**
+ * Extrai mês e ano de uma string de data no formato DD/MM/YYYY ou YYYY-MM-DD.
+ * Retorna { mes: number, ano: number } ou null se inválido.
+ */
+function parseDateParts(dateStr) {
+    if (!dateStr) return null;
+    if (dateStr.includes('-')) {
+        // ISO: YYYY-MM-DD
+        const parts = dateStr.split('-');
+        if (parts.length < 2) return null;
+        return { ano: parseInt(parts[0]), mes: parseInt(parts[1]) };
+    }
+    // legado: DD/MM/YYYY
+    const parts = dateStr.split('/');
+    if (parts.length < 2) return null;
+    const mes = parseInt(parts[1]);
+    const ano = parts.length === 3 ? parseInt(parts[2]) : new Date().getFullYear();
+    return { ano, mes };
+}
+
 function calcularRangeBusca(transacoes, metadados) {
-    // Tenta pegar ano do vencimento/emissão
+    // Bug 6 fix: aceitar datas ISO além de DD/MM/YYYY
     let ano = new Date().getFullYear();
     if (metadados?.vencimento) {
-        const parts = metadados.vencimento.split('/');
-        if (parts.length === 3) ano = parseInt(parts[2]);
+        const p = parseDateParts(metadados.vencimento);
+        if (p) ano = p.ano;
     }
 
     // Pega mês mais antigo e mais recente das transações
     const meses = transacoes
         .map(t => {
-            const parts = t.data.split('/');
-            return parts.length >= 2 ? parseInt(parts[1]) : null;
+            const p = parseDateParts(t.data);
+            return p ? p.mes : null;
         })
         .filter(m => m !== null);
 

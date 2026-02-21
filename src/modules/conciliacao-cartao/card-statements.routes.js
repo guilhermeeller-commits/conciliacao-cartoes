@@ -52,6 +52,15 @@ function formatDisplayName(vencimento, fornecedor) {
     return `${mm}/${yy} - Cartão - ${fornecedor}`;
 }
 
+/**
+ * Remove quebras de linha e espaços extras de qualquer texto
+ * enviado ao Olist para manter consistência.
+ */
+function sanitizeText(text) {
+    if (!text) return '';
+    return text.replace(/[\r\n]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
 // Multer — upload PDF to memory
 const upload = multer({
     storage: multer.memoryStorage(),
@@ -426,13 +435,17 @@ router.post('/:id/send-to-olist', async (req, res) => {
 
         for (let i = 0; i < toSend.length; i++) {
             const t = toSend[i];
-            const desc = `${(t.description || '').replace(/[\r\n]+/g, ' ').trim()}${t.installment ? ` (${t.installment})` : ''}`;
+            const desc = sanitizeText(`${fornecedor} | ${(t.description || '').trim()}${t.installment ? ` (${t.installment})` : ''}`);
 
             let dataEmissao = t.date || vencimento;
             if (dataEmissao.includes('-')) {
                 const [y, m, d] = dataEmissao.split('-');
                 dataEmissao = `${d}/${m}/${y}`;
             }
+
+            // Bug 10 fix: nro_documento preenchido (era vazio '')
+            // Bug 11 fix: desc com prefixo fornecedor (era sem prefixo)
+            const nroDoc = formatDisplayName(vencimento, fornecedor) || '';
 
             logger.info(`   [${i + 1}/${toSend.length}] "${t.description}" — R$ ${(t.amount || 0).toFixed(2)} → ${t.category}`);
 
@@ -441,7 +454,7 @@ router.post('/:id/send-to-olist', async (req, res) => {
                 valor: t.amount || 0,
                 categoria: t.category,
                 descricao: desc,
-                nro_documento: '',
+                nro_documento: nroDoc,
                 data_emissao: dataEmissao,
                 competencia,
                 fornecedor,
@@ -527,13 +540,17 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
 
         for (let i = 0; i < toSend.length; i++) {
             const t = toSend[i];
-            const desc = `${(t.description || '').replace(/[\r\n]+/g, ' ').trim()}${t.installment ? ` (${t.installment})` : ''}`;
+            const desc = sanitizeText(`${fornecedor} | ${(t.description || '').trim()}${t.installment ? ` (${t.installment})` : ''}`);
 
             let dataEmissao = t.date || vencimento;
             if (dataEmissao.includes('-')) {
                 const [y, m, d] = dataEmissao.split('-');
                 dataEmissao = `${d}/${m}/${y}`;
             }
+
+            // Bug 10 fix: nro_documento preenchido (era vazio '')
+            // Bug 11 fix: desc com prefixo fornecedor (era sem prefixo)
+            const nroDoc = formatDisplayName(vencimento, fornecedor) || '';
 
             logger.info(`   [${i + 1}/${toSend.length}] "${t.description}" — R$ ${(t.amount || 0).toFixed(2)} → ${t.category}`);
 
@@ -542,7 +559,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
                 valor: t.amount || 0,
                 categoria: t.category,
                 descricao: desc,
-                nro_documento: '',
+                nro_documento: nroDoc,
                 data_emissao: dataEmissao,
                 competencia,
                 fornecedor,

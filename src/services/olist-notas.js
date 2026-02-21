@@ -213,17 +213,22 @@ function cruzarTransacaoComNotas(transacao, notasEntrada) {
     const toleranciaValor = 0.50;
     const toleranciaDias = 15;
 
-    // Parse data da transação (DD/MM)
-    const partsData = transacao.data.split('/');
+    // Parse data da transação — aceita DD/MM/YYYY, DD/MM ou YYYY-MM-DD (ISO)
     let dataTransacao;
-    if (partsData.length === 3) {
-        dataTransacao = new Date(partsData[2], partsData[1] - 1, partsData[0]);
-    } else if (partsData.length === 2) {
-        // DD/MM — assume ano corrente
-        const ano = new Date().getFullYear();
-        dataTransacao = new Date(ano, parseInt(partsData[1]) - 1, parseInt(partsData[0]));
+    if (transacao.data && transacao.data.includes('-')) {
+        // ISO: YYYY-MM-DD
+        dataTransacao = new Date(transacao.data + 'T00:00:00');
     } else {
-        return [];
+        const partsData = (transacao.data || '').split('/');
+        if (partsData.length === 3) {
+            dataTransacao = new Date(partsData[2], partsData[1] - 1, partsData[0]);
+        } else if (partsData.length === 2) {
+            // DD/MM — assume ano corrente
+            const ano = new Date().getFullYear();
+            dataTransacao = new Date(ano, parseInt(partsData[1]) - 1, parseInt(partsData[0]));
+        } else {
+            return [];
+        }
     }
 
     const matches = [];

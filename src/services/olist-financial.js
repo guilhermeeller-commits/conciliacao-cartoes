@@ -1,5 +1,7 @@
 const axios = require('axios');
+const crypto = require('crypto');
 const logger = require('../utils/logger');
+const { query } = require('../database/connection');
 
 // ─── Olist/Tiny API V2 ────────────────────────
 const TINY_API_BASE = 'https://api.tiny.com.br/api2';
@@ -24,7 +26,23 @@ function sanitizeText(text) {
 }
 
 /**
+ * Gera chave de idempotência para uma transação.
+ * Hash SHA256 de: fornecedor + card_name + data + valor + descrição
+ */
+function gerarIdempotencyKey(dados) {
+    const payload = [
+        dados.fornecedor || '',
+        dados.card_name || '',
+        dados.data_emissao || dados.vencimento || '',
+        (dados.valor || 0).toFixed(2),
+        dados.descricao || '',
+    ].join('|');
+    return crypto.createHash('sha256').update(payload).digest('hex');
+}
+
+/**
  * Inclui uma conta a pagar no Olist Tiny ERP.
+ * Com verificação de idempotência para evitar duplicatas.
  *
  * @param {object} dados - Dados da conta a pagar
  * @param {string} dados.vencimento - Data de vencimento (DD/MM/YYYY)
@@ -35,7 +53,8 @@ function sanitizeText(text) {
  * @param {string} [dados.data_emissao] - Data de emissão (DD/MM/YYYY)
  * @param {string} [dados.competencia] - Competência (MM/YYYY)
  * @param {string} [dados.fornecedor] - Nome do fornecedor
- * @returns {{ sucesso: boolean, id: string|null, erro: string|null }}
+ * @param {string} [dados.card_name] - Nome do cartão (para idempotência)
+ * @returns {{ sucesso: boolean, id: string|null, erro: string|null, duplicata: boolean }}
  */
 async function incluirContaPagar(dados) {
     const token = process.env.TINY_API_TOKEN;
@@ -43,6 +62,44 @@ async function incluirContaPagar(dados) {
         throw new Error('TINY_API_TOKEN não configurado no .env');
     }
 
+    // ─── Verificação de idempotência ────────────────
+    const idempotencyKey = gerarIdempotencyKey(dados);
+
+    try {
+        const { rows: existing } = await query(
+            'SELECT id, olist_id, status FROM sent_transactions WHERE idempotency_key = $1',
+            [idempotencyKey]
+        );
+
+        if (existing.length > 0) {
+            const record = existing[0];
+            // Já enviado com sucesso — retornar ID existente
+            if (record.olist_id && record.status === 'sent') {
+                logger.info(`🔄 Transação duplicada detectada (idempotency_key=${idempotencyKey.slice(0, 12)}...), retornando ID existente: ${record.olist_id}`);
+                return { sucesso: true, id: record.olist_id, erro: null, duplicata: true };
+            }
+            // Envio anterior falhou — permitir retry (atualizar status para pending)
+            if (record.status === 'failed') {
+                logger.info(`🔄 Retentativa de envio (anterior falhou): ${idempotencyKey.slice(0, 12)}...`);
+                await query(
+                    'UPDATE sent_transactions SET status = $1, updated_at = NOW() WHERE id = $2',
+                    ['pending', record.id]
+                );
+            }
+        } else {
+            // Inserir registro pendente
+            await query(
+                `INSERT INTO sent_transactions (idempotency_key, card_name, transaction_date, amount, description, status)
+                 VALUES ($1, $2, $3, $4, $5, 'pending')`,
+                [idempotencyKey, dados.card_name || dados.fornecedor || '', dados.data_emissao || dados.vencimento || '', dados.valor, dados.descricao || '']
+            );
+        }
+    } catch (dbError) {
+        // Não bloquear o envio se a verificação de idempotência falhar
+        logger.warn(`⚠️ Erro na verificação de idempotência (continuando sem): ${dbError.message}`);
+    }
+
+    // ─── Envio ao Tiny ERP ────────────────────────
     const conta = {
         data: dados.data_emissao || dados.vencimento,
         vencimento: dados.vencimento,
@@ -82,8 +139,18 @@ async function incluirContaPagar(dados) {
                 || resposta.retorno?.id
                 || null;
 
+            // Atualizar registro de idempotência com sucesso
+            try {
+                await query(
+                    'UPDATE sent_transactions SET olist_id = $1, status = $2, updated_at = NOW() WHERE idempotency_key = $3',
+                    [id, 'sent', idempotencyKey]
+                );
+            } catch (dbErr) {
+                logger.warn(`⚠️ Erro ao atualizar sent_transactions: ${dbErr.message}`);
+            }
+
             logger.info(`✅ Conta incluída: "${dados.descricao}" — R$ ${dados.valor.toFixed(2)} → ${dados.categoria} (ID: ${id})`);
-            return { sucesso: true, id, erro: null };
+            return { sucesso: true, id, erro: null, duplicata: false };
         }
 
         // Erros
@@ -92,12 +159,32 @@ async function incluirContaPagar(dados) {
             ? erros.map(e => e.erro || e).join('; ')
             : JSON.stringify(erros);
 
+        // Atualizar registro de idempotência com falha
+        try {
+            await query(
+                'UPDATE sent_transactions SET status = $1, updated_at = NOW() WHERE idempotency_key = $2',
+                ['failed', idempotencyKey]
+            );
+        } catch (dbErr) {
+            logger.warn(`⚠️ Erro ao atualizar sent_transactions: ${dbErr.message}`);
+        }
+
         logger.warn(`⚠️  Erro ao incluir conta "${dados.descricao}": ${msgErro}`);
-        return { sucesso: false, id: null, erro: msgErro };
+        return { sucesso: false, id: null, erro: msgErro, duplicata: false };
 
     } catch (error) {
+        // Atualizar registro de idempotência com falha
+        try {
+            await query(
+                'UPDATE sent_transactions SET status = $1, updated_at = NOW() WHERE idempotency_key = $2',
+                ['failed', idempotencyKey]
+            );
+        } catch (dbErr) {
+            logger.warn(`⚠️ Erro ao atualizar sent_transactions: ${dbErr.message}`);
+        }
+
         logger.error(`❌ Erro HTTP ao incluir conta: ${error.message}`);
-        return { sucesso: false, id: null, erro: error.message };
+        return { sucesso: false, id: null, erro: error.message, duplicata: false };
     }
 }
 

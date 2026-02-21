@@ -146,6 +146,58 @@
     // Expor globalmente
     window.apiClient = apiClient;
 
+    // ═══════════════════════════════════════════════
+    // Interceptador global de fetch
+    // Injeta X-CSRF-Token em todas as chamadas POST/PUT/DELETE
+    // automaticamente — compatível com código legado inline.
+    // ═══════════════════════════════════════════════
+    const originalFetch = window.fetch;
+    window.fetch = async function (url, options = {}) {
+        const method = (options.method || 'GET').toUpperCase();
+        const needsCsrf = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+
+        if (needsCsrf) {
+            const token = await ensureCsrfToken();
+            if (token) {
+                // Suporta Headers object ou plain object
+                if (options.headers instanceof Headers) {
+                    if (!options.headers.has('X-CSRF-Token')) {
+                        options.headers.set('X-CSRF-Token', token);
+                    }
+                } else {
+                    options.headers = options.headers || {};
+                    if (!options.headers['X-CSRF-Token'] && !options.headers['x-csrf-token']) {
+                        options.headers['X-CSRF-Token'] = token;
+                    }
+                }
+            }
+        }
+
+        const response = await originalFetch.call(window, url, options);
+
+        // Se CSRF expirou (403), renovar token e retentear 1x
+        if (response.status === 403 && needsCsrf) {
+            try {
+                const cloned = response.clone();
+                const errorData = await cloned.json();
+                if (errorData.codigo === 'CSRF_INVALID') {
+                    csrfToken = null;
+                    const newToken = await fetchCsrfToken();
+                    if (options.headers instanceof Headers) {
+                        options.headers.set('X-CSRF-Token', newToken);
+                    } else {
+                        options.headers['X-CSRF-Token'] = newToken;
+                    }
+                    return originalFetch.call(window, url, options);
+                }
+            } catch (e) {
+                // Se não parsear JSON, retornar resposta original
+            }
+        }
+
+        return response;
+    };
+
     // Pre-fetch CSRF token na carga da página
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => fetchCsrfToken());
@@ -153,3 +205,4 @@
         fetchCsrfToken();
     }
 })();
+

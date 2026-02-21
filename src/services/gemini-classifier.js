@@ -11,10 +11,25 @@ const logger = require('../utils/logger');
 const fs = require('fs');
 const path = require('path');
 
-// ─── Carrega categorias válidas ───────────────
-const configPath = path.join(__dirname, '../../config/card-rules.json');
-const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-const CATEGORIAS = config.categorias || [];
+// ─── Carrega categorias válidas do banco ──────
+const cardRulesRepo = require('../repositories/card-rules-repo');
+
+function getCategorias() {
+    try {
+        return cardRulesRepo.getCategories();
+    } catch (e) {
+        // Fallback: tenta ler do JSON se o DB ainda não estiver pronto
+        const fs = require('fs');
+        const path = require('path');
+        const configPath = path.join(__dirname, '../../config/card-rules.json');
+        try {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+            return config.categorias || [];
+        } catch {
+            return [];
+        }
+    }
+}
 
 // ─── Inicializa Gemini ────────────────────────
 let genAI = null;
@@ -47,6 +62,7 @@ async function classificarComIA(itens) {
         .map((item, i) => `${i + 1}. "${item.descricao}" — R$ ${item.valor.toFixed(2)}`)
         .join('\n');
 
+    const CATEGORIAS = getCategorias();
     const listaCategorias = CATEGORIAS.map(c => `- ${c}`).join('\n');
 
     const prompt = `Você é um classificador financeiro especializado em despesas empresariais de uma transportadora brasileira chamada Calisul.

@@ -14,11 +14,9 @@ const { incluirContaPagar } = require('../../services/olist-financial');
 const { classificarComIA } = require('../../services/gemini-classifier');
 const logger = require('../../utils/logger');
 const repo = require('../../repositories/card-statements-repo');
+const cardRulesRepo = require('../../repositories/card-rules-repo');
 
-// Card name → financial account mapping (from card-rules.json)
-const cardRulesPath = path.join(__dirname, '../../../config/card-rules.json');
-const cardRules = JSON.parse(fs.readFileSync(cardRulesPath, 'utf-8'));
-
+// Card name → financial account mapping (from SQLite)
 function getFinancialAccount(bancoDetectado) {
     const mapping = {
         'mercadopago': 'Cartão Mercado Pago',
@@ -27,7 +25,7 @@ function getFinancialAccount(bancoDetectado) {
         'santander': 'Cartão Santander',
     };
     const cardName = mapping[bancoDetectado] || bancoDetectado;
-    const cardInfo = cardRules.cartoes?.[cardName];
+    const cardInfo = cardRulesRepo.getCardAccountByName(cardName);
     return {
         cardName,
         financialAccount: cardInfo?.conta_nome || null,
@@ -87,7 +85,7 @@ router.get('/', (req, res) => {
 router.get('/cards', (req, res) => {
     try {
         const fromDb = repo.getDistinctCards();
-        const fromConfig = Object.keys(cardRules.cartoes || {});
+        const fromConfig = Object.keys(cardRulesRepo.getCardAccounts());
         const all = [...new Set([...fromConfig, ...fromDb])].sort();
         res.json({ cards: all });
     } catch (error) {
@@ -159,7 +157,7 @@ router.post('/upload', upload.single('pdf'), async (req, res) => {
         const totalAmount = itensClassificados.reduce((sum, t) => sum + (t.valor || 0), 0);
 
         // 5. Generate standardized display name: MM/YY - Cartão - {Fornecedor}
-        const cardInfo = cardRules.cartoes?.[cardName];
+        const cardInfo = cardRulesRepo.getCardAccountByName(cardName);
         const fornecedorNome = cardInfo?.fornecedor || cardName;
         const displayName = formatDisplayName(vencimentoRaw, fornecedorNome) || req.file.originalname;
 
@@ -414,8 +412,8 @@ router.post('/:id/send-to-olist', async (req, res) => {
             });
         }
 
-        // Get card config from cardRules
-        const cardInfo = cardRules.cartoes?.[statement.card_name];
+        // Get card config from SQLite
+        const cardInfo = cardRulesRepo.getCardAccountByName(statement.card_name);
         if (!cardInfo) {
             return res.status(400).json({
                 erro: `Cartão "${statement.card_name}" não encontrado nas regras de configuração.`,
@@ -526,7 +524,7 @@ router.post('/:id/send-selected-to-olist', async (req, res) => {
             return res.status(400).json({ erro: 'Nenhuma transação categorizada entre as selecionadas.' });
         }
 
-        const cardInfo = cardRules.cartoes?.[statement.card_name];
+        const cardInfo = cardRulesRepo.getCardAccountByName(statement.card_name);
         if (!cardInfo) {
             return res.status(400).json({ erro: `Cartão "${statement.card_name}" não encontrado nas regras.` });
         }

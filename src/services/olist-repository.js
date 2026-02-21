@@ -32,11 +32,11 @@ function getToken() {
 
 // ─── Generic paginated fetcher ───────────────────────────
 
-async function fetchAllPages(endpoint, extraParams = {}, onProgress = null) {
+async function fetchAllPages(endpoint, extraParams = {}, onProgress = null, onBatch = null) {
     const token = getToken();
     let pagina = 1;
     let totalPaginas = 1;
-    const allRecords = [];
+    let totalSaved = 0;
 
     while (pagina <= totalPaginas) {
         const params = new URLSearchParams();
@@ -60,18 +60,23 @@ async function fetchAllPages(endpoint, extraParams = {}, onProgress = null) {
         if (resposta.retorno?.status === 'OK') {
             totalPaginas = parseInt(resposta.retorno?.numero_paginas) || 1;
             const records = extractRecords(endpoint, resposta.retorno);
-            allRecords.push(...records);
+
+            // Save immediately if onBatch callback provided
+            if (onBatch && records.length > 0) {
+                const saved = onBatch(records);
+                totalSaved += (typeof saved === 'number' ? saved : records.length);
+            }
 
             if (onProgress) {
                 onProgress({
                     page: pagina,
                     totalPages: totalPaginas,
                     recordsThisPage: records.length,
-                    totalRecords: allRecords.length,
+                    totalRecords: totalSaved,
                 });
             }
 
-            logger.info(`   📄 Página ${pagina}/${totalPaginas}: ${records.length} registros`);
+            logger.info(`   📄 Página ${pagina}/${totalPaginas}: ${records.length} registros (${totalSaved} salvos)`);
         } else {
             const erros = resposta.retorno?.erros || [];
             const msgErro = Array.isArray(erros)
@@ -93,7 +98,7 @@ async function fetchAllPages(endpoint, extraParams = {}, onProgress = null) {
         }
     }
 
-    return { records: allRecords, pages: totalPaginas };
+    return { totalSaved, pages: totalPaginas };
 }
 
 function extractRecords(endpoint, retorno) {
@@ -283,16 +288,18 @@ async function importContasPagar(onProgress = null) {
     ).run().lastInsertRowid;
 
     try {
-        const { records, pages } = await fetchAllPages('contas.pagar.pesquisa.php', {}, onProgress);
-        const count = upsertContasPagar(records);
+        const { totalSaved, pages } = await fetchAllPages(
+            'contas.pagar.pesquisa.php', {}, onProgress,
+            (batch) => upsertContasPagar(batch)
+        );
 
         db.prepare(`
             UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
             WHERE id = ?
-        `).run(count, pages, logId);
+        `).run(totalSaved, pages, logId);
 
-        logger.info(`✅ Contas a Pagar: ${count} registros importados`);
-        return { entity: 'contas_pagar', count, pages };
+        logger.info(`✅ Contas a Pagar: ${totalSaved} registros importados`);
+        return { entity: 'contas_pagar', count: totalSaved, pages };
     } catch (err) {
         db.prepare(`
             UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')
@@ -311,16 +318,18 @@ async function importContasReceber(onProgress = null) {
     ).run().lastInsertRowid;
 
     try {
-        const { records, pages } = await fetchAllPages('contas.receber.pesquisa.php', {}, onProgress);
-        const count = upsertContasReceber(records);
+        const { totalSaved, pages } = await fetchAllPages(
+            'contas.receber.pesquisa.php', {}, onProgress,
+            (batch) => upsertContasReceber(batch)
+        );
 
         db.prepare(`
             UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
             WHERE id = ?
-        `).run(count, pages, logId);
+        `).run(totalSaved, pages, logId);
 
-        logger.info(`✅ Contas a Receber: ${count} registros importados`);
-        return { entity: 'contas_receber', count, pages };
+        logger.info(`✅ Contas a Receber: ${totalSaved} registros importados`);
+        return { entity: 'contas_receber', count: totalSaved, pages };
     } catch (err) {
         db.prepare(`
             UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')
@@ -339,16 +348,18 @@ async function importContatos(onProgress = null) {
     ).run().lastInsertRowid;
 
     try {
-        const { records, pages } = await fetchAllPages('contatos.pesquisa.php', {}, onProgress);
-        const count = upsertContatos(records);
+        const { totalSaved, pages } = await fetchAllPages(
+            'contatos.pesquisa.php', {}, onProgress,
+            (batch) => upsertContatos(batch)
+        );
 
         db.prepare(`
             UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
             WHERE id = ?
-        `).run(count, pages, logId);
+        `).run(totalSaved, pages, logId);
 
-        logger.info(`✅ Contatos: ${count} registros importados`);
-        return { entity: 'contatos', count, pages };
+        logger.info(`✅ Contatos: ${totalSaved} registros importados`);
+        return { entity: 'contatos', count: totalSaved, pages };
     } catch (err) {
         db.prepare(`
             UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')
@@ -367,16 +378,18 @@ async function importNotasEntrada(onProgress = null) {
     ).run().lastInsertRowid;
 
     try {
-        const { records, pages } = await fetchAllPages('notas.fiscais.pesquisa.php', { tipo: 'E' }, onProgress);
-        const count = upsertNotasEntrada(records);
+        const { totalSaved, pages } = await fetchAllPages(
+            'notas.fiscais.pesquisa.php', { tipo: 'E' }, onProgress,
+            (batch) => upsertNotasEntrada(batch)
+        );
 
         db.prepare(`
             UPDATE olist_sync_log SET status = 'done', records_imported = ?, pages_fetched = ?, finished_at = datetime('now', 'localtime')
             WHERE id = ?
-        `).run(count, pages, logId);
+        `).run(totalSaved, pages, logId);
 
-        logger.info(`✅ Notas de Entrada: ${count} registros importados`);
-        return { entity: 'notas_entrada', count, pages };
+        logger.info(`✅ Notas de Entrada: ${totalSaved} registros importados`);
+        return { entity: 'notas_entrada', count: totalSaved, pages };
     } catch (err) {
         db.prepare(`
             UPDATE olist_sync_log SET status = 'error', error = ?, finished_at = datetime('now', 'localtime')

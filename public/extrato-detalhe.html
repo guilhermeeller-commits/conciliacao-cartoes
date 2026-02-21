@@ -305,6 +305,106 @@
             color: var(--text-secondary);
             font-size: 14px;
         }
+
+        /* ─── Selection Bar ─── */
+        .selection-bar {
+            display: none;
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-lg);
+            padding: 10px 20px;
+            z-index: 1500;
+            align-items: center;
+            gap: 16px;
+            animation: slideUp 0.2s ease;
+        }
+
+        .selection-bar.visible {
+            display: flex;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .selection-bar .sel-count {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+        }
+
+        .selection-bar .btn-send-selected {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 18px;
+            border-radius: var(--radius-md);
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid var(--blue);
+            background: rgba(56, 139, 253, 0.1);
+            color: var(--blue);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        .selection-bar .btn-send-selected:hover:not(:disabled) {
+            background: rgba(56, 139, 253, 0.2);
+        }
+
+        .selection-bar .btn-send-selected:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .selection-bar .btn-clear-sel {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 6px 12px;
+            border-radius: var(--radius-md);
+            font-size: 12px;
+            border: 1px solid var(--border-default);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: inherit;
+        }
+
+        .selection-bar .btn-clear-sel:hover {
+            border-color: var(--text-muted);
+            color: var(--text-primary);
+        }
+
+        /* Checkbox styling */
+        td.td-select input[type="checkbox"],
+        th.th-select input[type="checkbox"] {
+            width: 15px;
+            height: 15px;
+            cursor: pointer;
+            accent-color: var(--blue);
+        }
+
+        th.th-select {
+            width: 36px;
+        }
     </style>
 </head>
 
@@ -365,14 +465,7 @@
                             </svg>
                             Enviar ao Olist
                         </button>
-                        <button class="btn btn-danger btn-sm" id="btnDelete" onclick="deleteStatement()">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                            </svg>
-                            Excluir
-                        </button>
+
                     </div>
                 </div>
 
@@ -417,6 +510,8 @@
                         <span class="chip-count" id="chipPending">0</span></button>
                     <button class="tx-filter-chip" data-filter="categorized" onclick="setTxFilter('categorized')">🟢
                         Categorizadas <span class="chip-count" id="chipCategorized">0</span></button>
+                    <button class="tx-filter-chip" data-filter="sent" onclick="setTxFilter('sent')">🔵 Enviadas
+                        <span class="chip-count" id="chipSent">0</span></button>
                 </div>
 
                 <!-- Transactions Table -->
@@ -424,12 +519,13 @@
                     <table class="olist-table">
                         <thead>
                             <tr>
+                                <th class="th-select"><input type="checkbox" id="selectAll"
+                                        onchange="toggleSelectAll(this.checked)" title="Selecionar todas"></th>
                                 <th>Data</th>
                                 <th>Descrição</th>
                                 <th>Parcela</th>
                                 <th class="text-right">Valor</th>
                                 <th>Categoria</th>
-                                <th class="text-center" style="width: 40px;">✓</th>
                             </tr>
                         </thead>
                         <tbody id="transactionsBody">
@@ -498,6 +594,28 @@
         </div>
     </div>
 
+    <!-- Selection Bar -->
+    <div class="selection-bar" id="selectionBar">
+        <span class="sel-count" id="selCount">0 selecionadas</span>
+        <button class="btn-send-selected" id="btnSendSelected" onclick="sendSelectedToOlist()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+            Enviar ao Olist
+        </button>
+        <button class="btn-clear-sel" style="border-color: var(--red); color: var(--red);" onclick="deleteStatement()">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+            </svg>
+            Excluir Fatura
+        </button>
+        <button class="btn-clear-sel" onclick="clearSelection()">✕ Limpar</button>
+    </div>
+
     <!-- Toast -->
     <div class="toast-container" id="toastContainer"></div>
 
@@ -509,6 +627,7 @@
         let editingTransactionId = null;
         let selectedCategory = null;
         let txFilter = 'all';
+        let selectedIds = new Set();
 
         const statementId = new URLSearchParams(window.location.search).get('id');
 
@@ -593,10 +712,12 @@
             const allCount = transactions.length;
             const pendingCount = transactions.filter(t => !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO')).length;
             const categorizedCount = allCount - pendingCount;
+            const sentCount = transactions.filter(t => t.sent_to_olist).length;
 
             document.getElementById('chipAll').textContent = allCount;
             document.getElementById('chipPending').textContent = pendingCount;
             document.getElementById('chipCategorized').textContent = categorizedCount;
+            document.getElementById('chipSent').textContent = sentCount;
 
             // Apply filter
             let filtered = transactions;
@@ -604,6 +725,8 @@
                 filtered = transactions.filter(t => !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO'));
             } else if (txFilter === 'categorized') {
                 filtered = transactions.filter(t => t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO'));
+            } else if (txFilter === 'sent') {
+                filtered = transactions.filter(t => t.sent_to_olist);
             }
 
             if (filtered.length === 0) {
@@ -625,9 +748,14 @@
                 const catClass = hasCategory ? 'cat-auto' : 'cat-manual';
                 const catLabel = hasCategory ? t.category : '⚠️ NÃO CLASSIFICADO';
                 const amount = (t.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                const isChecked = selectedIds.has(t.id) ? 'checked' : '';
+                const sentBadge = t.sent_to_olist ? '<span style="color: var(--blue); font-size: 11px; margin-left: 6px;" title="Enviado ao Olist">✅</span>' : '';
 
                 return `
                     <tr>
+                        <td class="td-select">
+                            <input type="checkbox" ${isChecked} onchange="toggleSelect(${t.id}, this.checked)">
+                        </td>
                         <td>${formatDate(t.date)}</td>
                         <td>${escapeHtml(t.description || '—')}</td>
                         <td>${escapeHtml(t.installment || '—')}</td>
@@ -635,16 +763,17 @@
                         <td>
                             <span class="cat-badge ${catClass}" onclick="openCategoryModal(${t.id}, '${escapeAttr(t.description)}', '${escapeAttr(t.category || '')}')">
                                 ${escapeHtml(catLabel)}
-                            </span>
-                        </td>
-                        <td class="td-reconciled text-center">
-                            <input type="checkbox" ${t.reconciled ? 'checked' : ''} 
-                                   onchange="toggleReconciled(${t.id}, this.checked)"
-                                   title="Marcar como conciliado">
+                            </span>${sentBadge}
                         </td>
                     </tr>
                 `;
             }).join('');
+
+            // Update select-all checkbox state
+            const selectAllCb = document.getElementById('selectAll');
+            if (selectAllCb) {
+                selectAllCb.checked = filtered.length > 0 && filtered.every(t => selectedIds.has(t.id));
+            }
         }
 
         // ─── Transaction Filter ───────────────────────
@@ -839,6 +968,91 @@
         }
 
         // ─── Send to Olist ─────────────────────────────
+        // ─── Selection ─────────────────────────────────
+        function toggleSelect(id, checked) {
+            if (checked) {
+                selectedIds.add(id);
+            } else {
+                selectedIds.delete(id);
+            }
+            updateSelectionBar();
+            // Update select-all checkbox
+            const filtered = getFilteredTransactions();
+            const selectAllCb = document.getElementById('selectAll');
+            if (selectAllCb) {
+                selectAllCb.checked = filtered.length > 0 && filtered.every(t => selectedIds.has(t.id));
+            }
+        }
+
+        function toggleSelectAll(checked) {
+            const filtered = getFilteredTransactions();
+            filtered.forEach(t => {
+                if (checked) selectedIds.add(t.id);
+                else selectedIds.delete(t.id);
+            });
+            renderTransactions();
+            updateSelectionBar();
+        }
+
+        function getFilteredTransactions() {
+            if (txFilter === 'pending') {
+                return transactions.filter(t => !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO'));
+            } else if (txFilter === 'categorized') {
+                return transactions.filter(t => t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO'));
+            }
+            return transactions;
+        }
+
+        function clearSelection() {
+            selectedIds.clear();
+            renderTransactions();
+            updateSelectionBar();
+        }
+
+        function updateSelectionBar() {
+            const bar = document.getElementById('selectionBar');
+            const count = selectedIds.size;
+            if (count > 0) {
+                bar.classList.add('visible');
+                document.getElementById('selCount').textContent = `${count} selecionada${count > 1 ? 's' : ''}`;
+            } else {
+                bar.classList.remove('visible');
+            }
+        }
+
+        async function sendSelectedToOlist() {
+            if (selectedIds.size === 0) return;
+
+            const btn = document.getElementById('btnSendSelected');
+            btn.disabled = true;
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner" style="width:14px;height:14px;"></span> Enviando...';
+
+            try {
+                const ids = Array.from(selectedIds);
+                const res = await fetch(`/api/card-statements/${statementId}/send-selected-to-olist`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ transaction_ids: ids }),
+                });
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.erro || 'Erro ao enviar');
+
+                const stats = data.estatisticas || {};
+                showToast(data.message || `${stats.enviados || 0} transações enviadas ao Olist`);
+                selectedIds.clear();
+                updateSelectionBar();
+                loadStatement();
+            } catch (e) {
+                showToast(e.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        // ─── Send to Olist (all) ───────────────────────
         async function sendToOlist() {
             const btn = document.getElementById('btnSendOlist');
             btn.disabled = true;

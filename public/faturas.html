@@ -691,9 +691,9 @@
                             <polyline points="17 8 12 3 7 8" />
                             <line x1="12" y1="3" x2="12" y2="15" />
                         </svg></div>
-                    <h3>Arraste o PDF da fatura aqui</h3>
-                    <p>ou clique para selecionar um arquivo</p>
-                    <input type="file" id="fileInput" accept=".pdf">
+                    <h3>Arraste os PDFs das faturas aqui</h3>
+                    <p>ou clique para selecionar (vários arquivos)</p>
+                    <input type="file" id="fileInput" accept=".pdf" multiple>
                 </div>
                 <div id="uploadResult" class="hidden"></div>
             </div>
@@ -1197,9 +1197,9 @@
             dz.classList.remove('processing');
             dz.innerHTML = `
                 <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
-                <h3>Arraste o PDF da fatura aqui</h3>
-                <p>ou clique para selecionar um arquivo</p>
-                <input type="file" id="fileInput" accept=".pdf">
+                <h3>Arraste os PDFs das faturas aqui</h3>
+                <p>ou clique para selecionar (vários arquivos)</p>
+                <input type="file" id="fileInput" accept=".pdf" multiple>
             `;
             setupDropZone();
         }
@@ -1230,91 +1230,108 @@
                     e.preventDefault();
                     dz.classList.remove('dragover');
                     if (e.dataTransfer.files.length > 0) {
-                        uploadFile(e.dataTransfer.files[0]);
+                        uploadFiles(e.dataTransfer.files);
                     }
                 });
 
                 dz.addEventListener('change', (e) => {
                     if (e.target.matches('#fileInput') && e.target.files.length > 0) {
-                        uploadFile(e.target.files[0]);
+                        uploadFiles(e.target.files);
                     }
                 });
             }
         }
 
-        async function uploadFile(file) {
-            if (!file.name.toLowerCase().endsWith('.pdf')) {
+        async function uploadFiles(fileList) {
+            const files = [...fileList].filter(f => f.name.toLowerCase().endsWith('.pdf'));
+            if (files.length === 0) {
                 showToast('Apenas arquivos PDF são aceitos', 'error');
                 return;
             }
 
             const dz = document.getElementById('dropZone');
-            dz.classList.add('processing');
-            dz.innerHTML = `
-                <div class="spinner"></div>
-                <h3 style="margin-top: 12px;">Processando...</h3>
-                <p>${file.name}</p>
-            `;
+            const resultDiv = document.getElementById('uploadResult');
+            resultDiv.classList.remove('hidden');
+            resultDiv.innerHTML = '';
 
-            const formData = new FormData();
-            formData.append('pdf', file);
+            let successCount = 0;
+            let errorCount = 0;
+            const results = [];
 
-            try {
-                const res = await fetch('/api/card-statements/upload', {
-                    method: 'POST',
-                    body: formData,
-                });
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
 
-                const data = await res.json();
-
-                if (!res.ok) {
-                    throw new Error(data.erro || 'Erro no upload');
-                }
-
+                // Update drop zone with progress
+                dz.classList.add('processing');
                 dz.innerHTML = `
-                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
-                    <h3>Fatura importada com sucesso</h3>
+                    <div class="spinner"></div>
+                    <h3>Processando ${i + 1} de ${files.length}...</h3>
                     <p>${file.name}</p>
                 `;
 
-                const resultDiv = document.getElementById('uploadResult');
-                resultDiv.classList.remove('hidden');
-                resultDiv.innerHTML = `
-                    <div class="upload-result">
-                        <div class="result-row">
-                            <span class="label">Cartão</span>
-                            <span class="value">${escapeHtml(data.card_name)}</span>
-                        </div>
-                        <div class="result-row">
-                            <span class="label">Conta financeira</span>
-                            <span class="value">${escapeHtml(data.financial_account || '—')}</span>
-                        </div>
-                        <div class="result-row">
-                            <span class="label">Transações</span>
-                            <span class="value">${data.total_transactions}</span>
-                        </div>
-                        <div class="result-row">
-                            <span class="label">Valor total</span>
-                            <span class="value">R$ ${data.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                        <div class="result-row">
-                            <span class="label">Classificados</span>
-                            <span class="value" style="color: var(--green);">${data.resumo.percentualClassificado}%</span>
-                        </div>
-                    </div>
-                `;
+                const formData = new FormData();
+                formData.append('pdf', file);
 
-                showToast(`${data.total_transactions} transações importadas`);
+                try {
+                    const res = await fetch('/api/card-statements/upload', {
+                        method: 'POST',
+                        body: formData,
+                    });
+
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        throw new Error(data.erro || 'Erro no upload');
+                    }
+
+                    successCount++;
+                    results.push({ file: file.name, ok: true, data });
+                } catch (e) {
+                    errorCount++;
+                    results.push({ file: file.name, ok: false, error: e.message });
+                }
+            }
+
+            // Final state
+            const icon = errorCount === 0
+                ? '<path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>'
+                : '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+
+            dz.innerHTML = `
+                <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${icon}</svg></div>
+                <h3>${successCount} fatura${successCount !== 1 ? 's' : ''} importada${successCount !== 1 ? 's' : ''}${errorCount > 0 ? `, ${errorCount} erro${errorCount !== 1 ? 's' : ''}` : ''}</h3>
+            `;
+
+            // Show detailed results
+            resultDiv.innerHTML = results.map(r => {
+                if (r.ok) {
+                    return `
+                        <div class="upload-result">
+                            <div class="result-row"><span class="label">✅ ${escapeHtml(r.file)}</span></div>
+                            <div class="result-row">
+                                <span class="label">Cartão</span>
+                                <span class="value">${escapeHtml(r.data.card_name)}</span>
+                            </div>
+                            <div class="result-row">
+                                <span class="label">Transações</span>
+                                <span class="value">${r.data.total_transactions} — R$ ${r.data.total_amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="upload-result" style="border-color: var(--red);">
+                            <div class="result-row"><span class="label">❌ ${escapeHtml(r.file)}</span></div>
+                            <div class="result-row"><span class="value" style="color: var(--red);">${escapeHtml(r.error)}</span></div>
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            if (successCount > 0) {
+                showToast(`${successCount} fatura${successCount !== 1 ? 's' : ''} importada${successCount !== 1 ? 's' : ''}`);
                 loadStatements();
                 loadCardChips();
-
-            } catch (e) {
-                dz.innerHTML = `
-                    <div class="upload-icon"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
-                    <h3>Erro ao processar</h3>
-                    <p>${escapeHtml(e.message)}</p>
-                `;
-                showToast(e.message, 'error');
             }
         }
 

@@ -29,13 +29,13 @@ async function parsePdfFatura(input) {
     let transacoes;
     switch (banco) {
         case 'mercadopago':
-            transacoes = parseMercadoPago(texto);
+            transacoes = parseMercadoPago(texto, metadados);
             break;
         case 'caixa':
-            transacoes = parseCaixaEconomica(texto);
+            transacoes = parseCaixaEconomica(texto, metadados);
             break;
         case 'cresol':
-            transacoes = parseCresol(texto);
+            transacoes = parseCresol(texto, metadados);
             break;
         case 'santander':
             transacoes = parseSantander(texto);
@@ -169,14 +169,26 @@ function detectarBanco(texto) {
  *   "19/12ADOBER$ 114,00"
  *   "31/12MERCADOLIVRE*MERCADOLIVRER$ 4.599,00"
  */
-function parseMercadoPago(texto) {
+function parseMercadoPago(texto, metadados) {
     const transacoes = [];
     const linhas = texto.split('\n');
 
     // Regex principal: DD/MM + descrição + (opcional Parcela X de Y) + R$ valor
     const regexPrincipal = /^(\d{2}\/\d{2})(.+?)(?:Parcela\s+(\d+)\s+de\s+(\d+))?R\$\s*([\d.,]+)\s*$/;
 
-    let anoAtual = new Date().getFullYear();
+    // Infer statement year/month from metadados
+    let stmtYear = new Date().getFullYear();
+    let stmtMonth = new Date().getMonth() + 1;
+    if (metadados && metadados.vencimento) {
+        const venc = metadados.vencimento;
+        if (venc.includes('-')) {
+            const [y, m] = venc.split('-');
+            stmtYear = parseInt(y, 10); stmtMonth = parseInt(m, 10);
+        } else if (venc.includes('/')) {
+            const parts = venc.split('/');
+            if (parts.length === 3) { stmtMonth = parseInt(parts[1], 10); stmtYear = parseInt(parts[2], 10); }
+        }
+    }
 
     for (let i = 0; i < linhas.length; i++) {
         const linha = linhas[i].trim();
@@ -198,7 +210,9 @@ function parseMercadoPago(texto) {
         const parcela = parcelaAtual && parcelaTotal ? `${parcelaAtual}/${parcelaTotal}` : null;
 
         const [dia, mes] = dataCurta.split('/');
-        const data = `${dia}/${mes}/${anoAtual}`;
+        const txMonth = parseInt(mes, 10);
+        const txYear = txMonth > stmtMonth ? stmtYear - 1 : stmtYear;
+        const data = `${dia}/${mes}/${txYear}`;
 
         transacoes.push({
             data,
@@ -217,10 +231,23 @@ function parseMercadoPago(texto) {
  * Formato real: "02/12STOK CENTER 30LAGES341,76D"
  * — Data DD/MM colada na descrição, cidade colada no valor, D ou C no final.
  */
-function parseCaixaEconomica(texto) {
+function parseCaixaEconomica(texto, metadados) {
     const transacoes = [];
     const linhas = texto.split('\n');
-    const anoAtual = new Date().getFullYear();
+
+    // Infer statement year/month from metadados
+    let stmtYear = new Date().getFullYear();
+    let stmtMonth = new Date().getMonth() + 1;
+    if (metadados && metadados.vencimento) {
+        const venc = metadados.vencimento;
+        if (venc.includes('-')) {
+            const [y, m] = venc.split('-');
+            stmtYear = parseInt(y, 10); stmtMonth = parseInt(m, 10);
+        } else if (venc.includes('/')) {
+            const parts = venc.split('/');
+            if (parts.length === 3) { stmtMonth = parseInt(parts[1], 10); stmtYear = parseInt(parts[2], 10); }
+        }
+    }
 
     // Caixa formato real: "02/12STOK CENTER 30LAGES341,76D"
     // Parcelada: "29/08PLASNOX                   05 DE 18GASPAR6.389,04D"
@@ -269,7 +296,10 @@ function parseCaixaEconomica(texto) {
         if (!descricao || descricao.length < 2) continue;
         if (ignorar.test(descricao)) continue;
 
-        const data = `${dataRaw}/${anoAtual}`;
+        const [, diaRaw, mesRaw] = dataRaw.split('/');
+        const txMonth = parseInt(mesRaw, 10);
+        const txYear = txMonth > stmtMonth ? stmtYear - 1 : stmtYear;
+        const data = `${dataRaw}/${txYear}`;
 
         transacoes.push({
             data,
@@ -289,10 +319,23 @@ function parseCaixaEconomica(texto) {
  *   " 17 DEZHOSTGATORFLORIANOPOLISR$ 113,89"
  * Cabeçalho de seção: " DATADESCRIÇÃOCIDADEVALOR EM R$"
  */
-function parseCresol(texto) {
+function parseCresol(texto, metadados) {
     const transacoes = [];
     const linhas = texto.split('\n');
-    const anoAtual = new Date().getFullYear();
+
+    // Infer statement year/month from metadados
+    let stmtYear = new Date().getFullYear();
+    let stmtMonth = new Date().getMonth() + 1;
+    if (metadados && metadados.vencimento) {
+        const venc = metadados.vencimento;
+        if (venc.includes('-')) {
+            const [y, m] = venc.split('-');
+            stmtYear = parseInt(y, 10); stmtMonth = parseInt(m, 10);
+        } else if (venc.includes('/')) {
+            const parts = venc.split('/');
+            if (parts.length === 3) { stmtMonth = parseInt(parts[1], 10); stmtYear = parseInt(parts[2], 10); }
+        }
+    }
 
     const MESES_PT = {
         JAN: '01', FEV: '02', MAR: '03', ABR: '04', MAI: '05', JUN: '06',
@@ -345,7 +388,11 @@ function parseCresol(texto) {
         if (ignorar.test(descricao)) continue;
         if (/^mdte/i.test(descricao)) continue;
 
-        const data = `${String(dia).padStart(2, '0')}/${mes}/${anoAtual}`;
+        // Infer year: if transaction month > statement month → previous year
+        const txMonth = parseInt(mes, 10);
+        const txYear = txMonth > stmtMonth ? stmtYear - 1 : stmtYear;
+
+        const data = `${String(dia).padStart(2, '0')}/${mes}/${txYear}`;
 
         transacoes.push({
             data,

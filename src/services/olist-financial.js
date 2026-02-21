@@ -51,6 +51,7 @@ async function incluirContaPagar(dados) {
         historico: dados.descricao || '',
         nro_documento: dados.nro_documento || '',
         competencia: dados.competencia || '',
+        forma_pagamento: dados.forma_pagamento || '',
         cliente: {
             nome: dados.fornecedor || '',
         },

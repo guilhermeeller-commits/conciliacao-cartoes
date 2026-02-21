@@ -10,6 +10,7 @@ const router = express.Router();
 
 const { parsePdfFatura } = require('../../services/pdf-parser');
 const { classificarItens, gerarResumo } = require('../../services/expense-classifier');
+const { incluirContaPagar } = require('../../services/olist-financial');
 const logger = require('../../utils/logger');
 const repo = require('../../repositories/card-statements-repo');
 
@@ -324,9 +325,9 @@ router.post('/:id/auto-classify', (req, res) => {
 
 /**
  * POST /api/card-statements/:id/send-to-olist
- * Send categorized transactions from a statement to Olist/Tiny ERP
+ * Send categorized transactions from a statement to Olist/Tiny ERP as contas a pagar.
  */
-router.post('/:id/send-to-olist', (req, res) => {
+router.post('/:id/send-to-olist', async (req, res) => {
     try {
         const statement = repo.getStatementById(req.params.id);
         if (!statement) {
@@ -335,30 +336,202 @@ router.post('/:id/send-to-olist', (req, res) => {
 
         const transactions = repo.getTransactions(statement.id);
 
-        // Validate all transactions are categorized
-        const unclassified = transactions.filter(t =>
-            !t.category || t.category.trim() === '' || t.category.includes('NÃO CLASSIFICADO')
+        // Filter only categorized transactions — skip uncategorized
+        const toSend = transactions.filter(t =>
+            t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO')
         );
+        const skipped = transactions.length - toSend.length;
 
-        if (unclassified.length > 0) {
+        if (toSend.length === 0) {
             return res.status(400).json({
-                erro: `Existem ${unclassified.length} transações não categorizadas. Categorize todas antes de enviar ao Olist.`,
-                unclassified_count: unclassified.length,
+                erro: 'Nenhuma transação categorizada para enviar.',
             });
         }
 
-        // TODO: Implement actual Olist API integration
-        // For now, mark the statement as sent and return success
-        logger.info(`📤 Envio ao Olist: Fatura ${statement.id} (${transactions.length} transações) — funcionalidade em desenvolvimento`);
+        // Get card config from cardRules
+        const cardInfo = cardRules.cartoes?.[statement.card_name];
+        if (!cardInfo) {
+            return res.status(400).json({
+                erro: `Cartão "${statement.card_name}" não encontrado nas regras de configuração.`,
+            });
+        }
+
+        const fornecedor = cardInfo.fornecedor || statement.card_name;
+
+        // Build vencimento in DD/MM/YYYY from statement_date (YYYY-MM-DD or DD/MM/YYYY)
+        let vencimento = statement.statement_date || '';
+        if (vencimento.includes('-')) {
+            const [y, m, d] = vencimento.split('-');
+            vencimento = `${d}/${m}/${y}`;
+        }
+
+        // Build competencia MM/YYYY from vencimento
+        const vParts = vencimento.split('/');
+        const competencia = vParts.length === 3 ? `${vParts[1]}/${vParts[2]}` : '';
+
+        // nro_documento vazio conforme configuração
+
+        logger.info(`📤 Enviando fatura ${statement.id} ao Olist: ${toSend.length} categorizadas de ${transactions.length} — ${statement.card_name} (${skipped} puladas)`);
+        logger.info(`   Fornecedor: ${fornecedor} | Vencimento: ${vencimento} | Competência: ${competencia}`);
+
+        let enviados = 0;
+        let erros = 0;
+        const detalhes = [];
+        const RATE_LIMIT_MS = 2100;
+
+        for (let i = 0; i < toSend.length; i++) {
+            const t = toSend[i];
+            const desc = `${(t.description || '').replace(/[\r\n]+/g, ' ').trim()}${t.installment ? ` (${t.installment})` : ''}`;
+
+            // Build data_emissao from transaction date
+            let dataEmissao = t.date || vencimento;
+            if (dataEmissao.includes('-')) {
+                const [y, m, d] = dataEmissao.split('-');
+                dataEmissao = `${d}/${m}/${y}`;
+            }
+
+            logger.info(`   [${i + 1}/${toSend.length}] "${t.description}" — R$ ${(t.amount || 0).toFixed(2)} → ${t.category}`);
+
+            const resultado = await incluirContaPagar({
+                vencimento,
+                valor: t.amount || 0,
+                categoria: t.category,
+                descricao: desc,
+                nro_documento: '',
+                data_emissao: dataEmissao,
+                competencia,
+                fornecedor,
+                forma_pagamento: 'credito',
+            });
+
+            if (resultado.sucesso) {
+                enviados++;
+                repo.markTransactionSent(t.id, resultado.id);
+                detalhes.push({ id: t.id, description: t.description, status: 'ok', id_olist: resultado.id });
+            } else {
+                erros++;
+                detalhes.push({ id: t.id, description: t.description, status: 'erro', erro: resultado.erro });
+            }
+
+            // Rate limiting between API calls
+            if (i < toSend.length - 1) {
+                await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
+            }
+        }
+
+        logger.info(`📊 Envio finalizado: ${enviados} OK, ${erros} erros, ${skipped} puladas`);
 
         res.json({
             ok: true,
-            message: `Fatura com ${transactions.length} transações preparada para envio ao Olist. Integração com API Tiny em desenvolvimento.`,
+            message: `${enviados} de ${toSend.length} transações enviadas ao Olist.${skipped > 0 ? ` ${skipped} não categorizadas foram puladas.` : ''}`,
             statement_id: statement.id,
-            transactions_count: transactions.length,
+            estatisticas: { total: transactions.length, enviados, erros, pulados: skipped },
+            detalhes,
         });
     } catch (error) {
         logger.error(`❌ Erro ao enviar ao Olist: ${error.message}`);
+        res.status(500).json({ erro: error.message });
+    }
+});
+/**
+ * POST /api/card-statements/:id/send-selected-to-olist
+ * Send only selected transactions (by ID) to Olist/Tiny ERP as contas a pagar.
+ * Body: { transaction_ids: number[] }
+ */
+router.post('/:id/send-selected-to-olist', async (req, res) => {
+    try {
+        const statement = repo.getStatementById(req.params.id);
+        if (!statement) {
+            return res.status(404).json({ erro: 'Fatura não encontrada' });
+        }
+
+        const { transaction_ids } = req.body;
+        if (!transaction_ids || !Array.isArray(transaction_ids) || transaction_ids.length === 0) {
+            return res.status(400).json({ erro: 'Nenhuma transação selecionada' });
+        }
+
+        const allTransactions = repo.getTransactions(statement.id);
+        const toSend = allTransactions.filter(t =>
+            transaction_ids.includes(t.id) &&
+            t.category && t.category.trim() !== '' && !t.category.includes('NÃO CLASSIFICADO')
+        );
+
+        if (toSend.length === 0) {
+            return res.status(400).json({ erro: 'Nenhuma transação categorizada entre as selecionadas.' });
+        }
+
+        const cardInfo = cardRules.cartoes?.[statement.card_name];
+        if (!cardInfo) {
+            return res.status(400).json({ erro: `Cartão "${statement.card_name}" não encontrado nas regras.` });
+        }
+
+        const fornecedor = cardInfo.fornecedor || statement.card_name;
+
+        let vencimento = statement.statement_date || '';
+        if (vencimento.includes('-')) {
+            const [y, m, d] = vencimento.split('-');
+            vencimento = `${d}/${m}/${y}`;
+        }
+
+        const vParts = vencimento.split('/');
+        const competencia = vParts.length === 3 ? `${vParts[1]}/${vParts[2]}` : '';
+
+        logger.info(`📤 Enviando ${toSend.length} transações selecionadas ao Olist — ${statement.card_name}`);
+
+        let enviados = 0;
+        let erros = 0;
+        const detalhes = [];
+        const RATE_LIMIT_MS = 2100;
+
+        for (let i = 0; i < toSend.length; i++) {
+            const t = toSend[i];
+            const desc = `${(t.description || '').replace(/[\r\n]+/g, ' ').trim()}${t.installment ? ` (${t.installment})` : ''}`;
+
+            let dataEmissao = t.date || vencimento;
+            if (dataEmissao.includes('-')) {
+                const [y, m, d] = dataEmissao.split('-');
+                dataEmissao = `${d}/${m}/${y}`;
+            }
+
+            logger.info(`   [${i + 1}/${toSend.length}] "${t.description}" — R$ ${(t.amount || 0).toFixed(2)} → ${t.category}`);
+
+            const resultado = await incluirContaPagar({
+                vencimento,
+                valor: t.amount || 0,
+                categoria: t.category,
+                descricao: desc,
+                nro_documento: '',
+                data_emissao: dataEmissao,
+                competencia,
+                fornecedor,
+                forma_pagamento: 'credito',
+            });
+
+            if (resultado.sucesso) {
+                enviados++;
+                repo.markTransactionSent(t.id, resultado.id);
+                detalhes.push({ id: t.id, description: t.description, status: 'ok', id_olist: resultado.id });
+            } else {
+                erros++;
+                detalhes.push({ id: t.id, description: t.description, status: 'erro', erro: resultado.erro });
+            }
+
+            if (i < toSend.length - 1) {
+                await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
+            }
+        }
+
+        logger.info(`📊 Envio selecionadas: ${enviados} OK, ${erros} erros de ${toSend.length}`);
+
+        res.json({
+            ok: true,
+            message: `${enviados} de ${toSend.length} transações enviadas ao Olist.`,
+            statement_id: statement.id,
+            estatisticas: { total: toSend.length, enviados, erros },
+            detalhes,
+        });
+    } catch (error) {
+        logger.error(`❌ Erro ao enviar selecionadas ao Olist: ${error.message}`);
         res.status(500).json({ erro: error.message });
     }
 });

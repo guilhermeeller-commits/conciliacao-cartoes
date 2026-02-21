@@ -138,6 +138,11 @@ function setTransactionReconciled(transactionId, reconciled) {
     return db.prepare('UPDATE card_transactions SET reconciled = ? WHERE id = ?').run(reconciled ? 1 : 0, transactionId);
 }
 
+function markTransactionSent(transactionId, olistId) {
+    const db = getDb();
+    return db.prepare('UPDATE card_transactions SET sent_to_olist = 1, olist_id = ? WHERE id = ?').run(olistId || null, transactionId);
+}
+
 module.exports = {
     insertStatement,
     findDuplicateStatement,
@@ -150,4 +155,5 @@ module.exports = {
     getTransactions,
     updateTransactionCategory,
     setTransactionReconciled,
+    markTransactionSent,
 };

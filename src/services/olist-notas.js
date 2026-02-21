@@ -1,8 +1,8 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
+const { apiQueue } = require('./api-queue');
 
 const TINY_API_BASE = 'https://api.tiny.com.br/api2';
-const RATE_LIMIT_MS = 2100;
 
 /**
  * Pesquisa notas fiscais de entrada no Olist Tiny ERP.
@@ -30,14 +30,15 @@ async function pesquisarNotasEntrada(dataInicial, dataFinal) {
         params.append('pagina', pagina.toString());
 
         try {
-            const { data: resposta } = await axios.post(
+            const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
                 `${TINY_API_BASE}/notas.fiscais.pesquisa.php`,
                 params.toString(),
                 {
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     timeout: 30000,
+                    signal,
                 }
-            );
+            ));
 
             if (resposta.retorno?.status !== 'OK') {
                 const erros = resposta.retorno?.erros || [];
@@ -71,7 +72,7 @@ async function pesquisarNotasEntrada(dataInicial, dataFinal) {
                 temMais = false;
             } else {
                 pagina++;
-                await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
+                // Rate limit controlado pela apiQueue — delay manual removido
             }
         } catch (error) {
             logger.error(`❌ Erro HTTP pesquisando NFs: ${error.message}`);
@@ -99,14 +100,15 @@ async function obterNotaFiscal(id) {
     params.append('id', id.toString());
 
     try {
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/nota.fiscal.obter.php`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         if (resposta.retorno?.status !== 'OK') {
             return null;

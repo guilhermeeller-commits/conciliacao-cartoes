@@ -2,12 +2,10 @@ const axios = require('axios');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { query } = require('../database/connection');
+const { apiQueue } = require('./api-queue');
 
 // ─── Olist/Tiny API V2 ────────────────────────
 const TINY_API_BASE = 'https://api.tiny.com.br/api2';
-
-// Rate limiting: Tiny API permite ~30 requests/minuto
-const RATE_LIMIT_MS = 2100; // ~2.1s entre chamadas para ficar seguro
 
 // ─── Helpers: padronização ────────────────────
 
@@ -122,14 +120,15 @@ async function incluirContaPagar(dados) {
 
         logger.info(`📋 Payload conta.pagar.incluir: ${JSON.stringify(conta)}`);
 
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/conta.pagar.incluir.php`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         logger.info(`📋 Resposta conta.pagar.incluir: ${JSON.stringify(resposta)}`);
 
@@ -216,14 +215,15 @@ async function baixarContaPagar(dados) {
         params.append('formato', 'json');
         params.append('conta', JSON.stringify({ conta: baixa }));
 
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/conta.pagar.baixar.php`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         if (resposta.retorno?.status === 'OK') {
             logger.info(`   💰 Baixa realizada → ${dados.contaOrigem}`);
@@ -311,7 +311,7 @@ async function enviarLoteFatura(itensClassificados, opcoes) {
 
             // Auto-baixa na conta bancária do cartão
             if (opcoes.contaOrigem && resultado.id) {
-                await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
+                // Rate limit controlado pela apiQueue
                 const baixa = await baixarContaPagar({
                     id: resultado.id,
                     contaOrigem: opcoes.contaOrigem,
@@ -333,10 +333,7 @@ async function enviarLoteFatura(itensClassificados, opcoes) {
             resultados.detalhes.push({ ...item, status: 'erro', erro: resultado.erro });
         }
 
-        // Rate limiting — aguarda entre chamadas
-        if (i < itensClassificados.length - 1) {
-            await new Promise(r => setTimeout(r, RATE_LIMIT_MS));
-        }
+        // Rate limit controlado pela apiQueue — delay manual removido
     }
 
     // Resumo final
@@ -393,14 +390,15 @@ async function pesquisarContasPagar(filtros = {}) {
 
         logger.info(`🔍 Pesquisando contas a pagar: ${JSON.stringify(filtros)}`);
 
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/contas.pagar.pesquisa.php`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         if (resposta.retorno?.status === 'OK') {
             const contas = resposta.retorno?.contas || [];
@@ -456,14 +454,15 @@ async function obterContaPagar(id) {
         params.append('formato', 'json');
         params.append('id', id);
 
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/conta.pagar.obter.php`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         if (resposta.retorno?.status === 'OK') {
             const conta = resposta.retorno?.conta || {};
@@ -498,14 +497,15 @@ async function excluirContaPagar(id) {
 
         logger.info(`🗑️ Tentando excluir conta ID: ${id}`);
 
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/conta.pagar.excluir.php`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         logger.info(`📋 Resposta excluir: ${JSON.stringify(resposta)}`);
 
@@ -543,14 +543,15 @@ async function estornarBaixa(id) {
 
         logger.info(`↩️ Tentando estornar baixa da conta ID: ${id}`);
 
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/conta.pagar.estornar.php`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         logger.info(`📋 Resposta estornar: ${JSON.stringify(resposta)}`);
 

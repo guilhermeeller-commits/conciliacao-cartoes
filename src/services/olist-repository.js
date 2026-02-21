@@ -14,13 +14,11 @@
 const axios = require('axios');
 const { query, getClient } = require('../database/connection');
 const logger = require('../utils/logger');
+const { apiQueue } = require('./api-queue');
 
 const TINY_API_BASE = 'https://api.tiny.com.br/api2';
-const RATE_LIMIT_MS = 2100;
 
-function sleep(ms) {
-    return new Promise(r => setTimeout(r, ms));
-}
+
 
 function getToken() {
     const token = process.env.TINY_API_TOKEN;
@@ -48,14 +46,15 @@ async function fetchAllPages(endpoint, extraParams = {}, onProgress = null, onBa
             if (value) params.append(key, value);
         }
 
-        const { data: resposta } = await axios.post(
+        const { data: resposta } = await apiQueue.enqueue(({ signal }) => axios.post(
             `${TINY_API_BASE}/${endpoint}`,
             params.toString(),
             {
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 timeout: 30000,
+                signal,
             }
-        );
+        ));
 
         if (resposta.retorno?.status === 'OK') {
             totalPaginas = parseInt(resposta.retorno?.numero_paginas) || 1;
@@ -95,9 +94,7 @@ async function fetchAllPages(endpoint, extraParams = {}, onProgress = null, onBa
         }
 
         pagina++;
-        if (pagina <= totalPaginas) {
-            await sleep(RATE_LIMIT_MS);
-        }
+        // Rate limit controlado pela apiQueue — delay manual removido
     }
 
     return { totalSaved, pages: totalPaginas };
